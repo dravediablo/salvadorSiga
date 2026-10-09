@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.vercel
+.DS_Store
+.env*.local
+*.tsbuildinfo
+# copias sueltas anteriores a la estructura de CLAUDE.md
+/HITO-1.md
+/prototipo.html

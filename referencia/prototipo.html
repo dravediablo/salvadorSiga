@@ -1,0 +1,2054 @@
+<!doctype html>
+<html lang="es-MX" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monitoreo de Sigatoka negra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#FFFFFF; --surface:#F1F5EF; --surface-2:#E2E9DE; --line:#C3CEBF;
+  --ink:#0E2015; --ink-2:#46574B; --leaf:#1B6A38; --leaf-hover:#145A2E; --on-leaf:#FFFFFF;
+  --banana:#F4C430; --aviso-bg:#FFF2C7; --aviso:#6E4500; --error-bg:#FCE3DF; --error:#9E2017; --info-bg:#E4EFF7; --info:#1D4E73;
+  --g0:#3E9B4F; --g1:#A9D153; --g2:#EAD53D; --g3:#F3A43B; --g4:#DC6430; --g5:#A13A22; --g6:#45281A;
+  --verde:#2E8B47; --amarillo:#E1B10C; --rojo:#C5352A; --sin:#BAC4B7;
+  --s1:#1B6A38; --s2:#2B6CB0; --s3:#C05621; --s4:#7B3FA0; --s5:#0F8A8A; --s6:#B7791F; --s7:#C53070; --s8:#4A5568;
+  color-scheme:light;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1510; --surface:#16211A; --surface-2:#203026; --line:#33453A;
+    --ink:#E9F2EB; --ink-2:#A7BAAD; --leaf:#5DBE79; --leaf-hover:#72CC8B; --on-leaf:#08130C;
+    --aviso-bg:#3A2E0B; --aviso:#F6D77A; --error-bg:#3D1512; --error:#FFA79E; --info-bg:#132B3D; --info:#9CCBEE;
+    --sin:#4B5A50; --s1:#5DBE79; --s2:#6FA8E8; --s3:#F08A4B; --s4:#B98AE0; --s5:#4FD1C5; --s6:#E9B949; --s7:#F07BAE; --s8:#A0AEC0;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1510; --surface:#16211A; --surface-2:#203026; --line:#33453A;
+  --ink:#E9F2EB; --ink-2:#A7BAAD; --leaf:#5DBE79; --leaf-hover:#72CC8B; --on-leaf:#08130C;
+  --aviso-bg:#3A2E0B; --aviso:#F6D77A; --error-bg:#3D1512; --error:#FFA79E; --info-bg:#132B3D; --info:#9CCBEE;
+  --sin:#4B5A50; --s1:#5DBE79; --s2:#6FA8E8; --s3:#F08A4B; --s4:#B98AE0; --s5:#4FD1C5; --s6:#E9B949; --s7:#F07BAE; --s8:#A0AEC0;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:18px;line-height:1.45;-webkit-text-size-adjust:100%}
+h1,h2,h3{line-height:1.2;margin:0}
+h1{font-size:1.5rem} h2{font-size:1.25rem} h3{font-size:1.06rem}
+p{margin:.4em 0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--banana);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-2)}
+.peq{font-size:.86rem}
+
+/* barra superior */
+.barra{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:2px solid var(--ink);display:flex;align-items:center;gap:10px;padding:8px 14px;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;margin-right:auto;min-width:0}
+.marca-hoja{width:26px;height:26px;border-radius:0 100% 0 100%;background:linear-gradient(135deg,var(--g0) 0 45%,var(--g3) 45% 70%,var(--g6) 70%);flex:none}
+.sel-usuario{min-height:44px;border:2px solid var(--line);border-radius:10px;background:var(--bg);padding:4px 8px;max-width:220px}
+@media (max-width:560px){.marca .txt{display:none}.sel-usuario{max-width:42vw}.barra{flex-wrap:nowrap;gap:6px;padding:8px 10px}.pill{padding:4px 10px}.btn-tema{width:44px;padding:0;justify-content:center}}
+.pill{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;min-height:44px;padding:4px 12px;border-radius:999px;border:2px solid var(--line);background:var(--bg);cursor:pointer;font-weight:700;font-size:.9rem}
+.punto{width:12px;height:12px;border-radius:50%;flex:none}
+.pop{position:absolute;right:12px;top:100%;margin-top:6px;background:var(--bg);border:2px solid var(--ink);border-radius:14px;padding:14px;width:min(340px,calc(100vw - 24px));box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:40}
+
+/* navegación inferior */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:2px solid var(--ink);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+.nav button{flex:1;min-height:60px;border:0;background:none;font-weight:700;font-size:.9rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--ink-2);border-top:4px solid transparent}
+.nav button.activo{color:var(--ink);border-top-color:var(--leaf)}
+.nav svg{width:24px;height:24px}
+.contenido{padding:16px 14px 110px;max-width:760px;margin:0 auto}
+.contenido.ancho{max-width:1240px}
+
+/* botones */
+.btn{min-height:52px;padding:10px 18px;border-radius:12px;border:2px solid var(--ink);background:var(--bg);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-p{background:var(--leaf);border-color:var(--leaf);color:var(--on-leaf)}
+.btn-p:hover:not(:disabled){background:var(--leaf-hover)}
+.btn-x{border-color:var(--error);color:var(--error)}
+.btn-xp{background:var(--error);border-color:var(--error);color:var(--bg)}
+.btn-q{border-color:var(--line)}
+.btn-b{display:flex;width:100%}
+.btn-s{min-height:44px;padding:6px 12px;font-size:.92rem}
+.enlace{background:none;border:0;color:var(--leaf);font-weight:700;cursor:pointer;padding:8px 0;min-height:44px;text-decoration:underline;text-underline-offset:3px}
+.fila-btn{display:flex;gap:10px;flex-wrap:wrap}
+.fila-btn>.btn{flex:1 1 160px}
+
+/* bloques */
+.seccion{margin:18px 0}
+.caja{background:var(--surface);border-radius:14px;padding:14px}
+.caja-borde{border:2px solid var(--line);border-radius:14px;padding:14px}
+.lista{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:2px solid transparent;border-radius:14px;padding:12px 14px;min-height:64px;cursor:pointer}
+.item:hover{border-color:var(--line)}
+.item .der{margin-left:auto;text-align:right}
+.etq{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:700;border:2px solid currentColor;white-space:nowrap}
+.e-curso{color:var(--info)} .e-cerrado{color:var(--aviso)} .e-sinc{color:var(--verde)}
+.aviso{background:var(--aviso-bg);color:var(--aviso);border-radius:12px;padding:10px 14px;margin:10px 0}
+.error{background:var(--error-bg);color:var(--error);border-radius:12px;padding:10px 14px;margin:10px 0}
+.info{background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 14px;margin:10px 0}
+.aviso ul,.error ul{margin:0;padding-left:20px}
+.migas{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.volver{min-height:44px;border:0;background:none;font-weight:700;cursor:pointer;padding:0 8px 0 0;display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.kpi{background:var(--surface);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:1.6rem;line-height:1.1}
+.kpi span{font-size:.82rem;color:var(--ink-2)}
+
+/* formularios */
+label.campo{display:block;margin:12px 0}
+label.campo>span{display:block;font-weight:700;margin-bottom:6px}
+.inp{width:100%;min-height:52px;border:2px solid var(--line);border-radius:12px;background:var(--bg);padding:8px 12px}
+.inp:focus{border-color:var(--leaf)}
+textarea.inp{min-height:84px;resize:vertical}
+.rejilla2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:420px){.rejilla2{grid-template-columns:1fr}}
+
+/* stepper */
+.paso{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.paso .tit{font-weight:700}
+.paso .sub{font-size:.82rem;color:var(--ink-2)}
+.stepper{display:flex;align-items:center;gap:6px;flex:none}
+.stepper button{width:56px;height:56px;border-radius:12px;border:2px solid var(--ink);background:var(--bg);font-size:1.6rem;font-weight:700;cursor:pointer;line-height:1}
+.stepper output{min-width:54px;text-align:center;font-size:1.7rem;font-weight:700}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-width:52px;min-height:52px;padding:6px 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);font-weight:700;cursor:pointer;font-size:1.05rem}
+.chip.activo{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip.np.activo{background:var(--ink-2);border-color:var(--ink-2)}
+.chip-tabla{min-width:84px}
+.sintoma{padding:12px 0;border-bottom:1px solid var(--line)}
+.sintoma .cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:8px}
+
+/* hojas */
+.tira{display:flex;gap:4px;flex-wrap:wrap}
+.cuad{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;border:1px solid rgba(0,0,0,.15)}
+.cuad.vacio{background:var(--bg);border:2px dashed var(--line);color:var(--ink-2)}
+.gc0{background:var(--g0);color:#fff}.gc1{background:var(--g1);color:#13210f}.gc2{background:var(--g2);color:#2a2306}
+.gc3{background:var(--g3);color:#2d1a03}.gc4{background:var(--g4);color:#fff}.gc5{background:var(--g5);color:#fff}.gc6{background:var(--g6);color:#fff}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.modal-cab{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:2px solid var(--ink)}
+.modal-cuerpo{flex:1;overflow:auto;padding:12px 14px}
+.modal-pie{border-top:2px solid var(--ink);padding:10px 12px;background:var(--bg)}
+.velo{position:fixed;inset:0;z-index:55;background:rgba(10,20,14,.55);display:flex;align-items:flex-end;justify-content:center}
+.hoja-sheet{background:var(--bg);width:100%;max-width:680px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+@media (min-width:700px){.velo{align-items:center}.hoja-sheet{border-radius:18px}}
+
+/* planta dibujada */
+.planta{display:flex;flex-direction:column;gap:3px;align-items:center;padding:4px 0 10px;position:relative}
+.planta::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:10px;margin-left:-5px;background:var(--surface-2);border-radius:5px}
+.hoja-f{position:relative;display:flex;align-items:center;width:100%;max-width:340px;cursor:pointer;background:none;border:0;padding:0;min-height:30px}
+.hoja-f .lam{width:44%;height:26px;border:2px solid transparent}
+.hoja-f.izq{justify-content:flex-start}.hoja-f.izq .lam{margin-left:6%;border-radius:100% 0 100% 0}
+.hoja-f.der{justify-content:flex-end}.hoja-f.der .lam{margin-right:6%;border-radius:0 100% 0 100%}
+.hoja-f .n{position:absolute;left:50%;transform:translateX(-50%);font-size:.78rem;font-weight:700;background:var(--bg);border:2px solid var(--ink);border-radius:999px;min-width:28px;height:24px;display:flex;align-items:center;justify-content:center;z-index:1}
+.hoja-f.actual .lam{border-color:var(--ink);box-shadow:0 0 0 3px var(--banana)}
+.hoja-f.actual .n{background:var(--banana);color:#111}
+.lam.vacia{background:repeating-linear-gradient(45deg,var(--surface) 0 6px,var(--surface-2) 6px 12px)}
+.grados{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grado{min-height:78px;border-radius:14px;border:2px solid rgba(0,0,0,.25);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;font-weight:700}
+.grado b{font-size:2rem;line-height:1}
+.grado small{font-size:.74rem;font-weight:700;line-height:1.15;text-align:center}
+.grado.sel{outline:4px solid var(--ink);outline-offset:2px}
+.sep-func{grid-column:1/-1;font-size:.78rem;color:var(--ink-2);display:flex;justify-content:space-between}
+
+/* tablero */
+.filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.filtros label{display:flex;flex-direction:column;font-size:.85rem;font-weight:700;gap:4px}
+.filtros .inp{min-height:46px;width:auto}
+.rej-tab{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.c12{grid-column:span 12}.c7{grid-column:span 7}.c5{grid-column:span 5}.c6{grid-column:span 6}
+@media (max-width:980px){.c7,.c5,.c6{grid-column:span 12}}
+.panel{border:2px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+.panel-cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.panel-cab h2{margin-right:auto}
+.seg{display:inline-flex;border:2px solid var(--ink);border-radius:12px;overflow:hidden;flex-wrap:wrap}
+.seg button{min-height:42px;padding:4px 12px;border:0;background:var(--bg);font-weight:700;cursor:pointer;font-size:.88rem}
+.seg button.activo{background:var(--ink);color:var(--bg)}
+.desliza{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.datos{border-collapse:collapse;width:100%;font-size:.92rem}
+table.datos th,table.datos td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+table.datos th{font-size:.8rem;color:var(--ink-2)}
+table.datos td.n,table.datos th.n{text-align:right;font-variant-numeric:tabular-nums}
+table.datos tr.clic{cursor:pointer}
+table.datos tr.clic:hover td{background:var(--surface)}
+.sem{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle}
+.respuestas{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.resp{background:var(--surface);border-radius:14px;padding:12px 14px;border-left:6px solid var(--ink)}
+.resp h3{font-size:.95rem;margin-bottom:4px}
+.resp p{font-size:.92rem;margin:.2em 0}
+.lectura{background:var(--surface);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:.9rem}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.85rem;margin:6px 0}
+.leyenda span{display:inline-flex;align-items:center;gap:6px}
+.barra-h{display:grid;grid-template-columns:72px 1fr 64px;gap:8px;align-items:center;margin:5px 0;font-size:.9rem}
+.barra-h .fondo{background:var(--surface);border-radius:6px;height:24px;overflow:hidden}
+.barra-h .val{height:100%;border-radius:6px}
+.apilada{display:flex;height:22px;border-radius:5px;overflow:hidden;background:var(--surface)}
+.mapa svg{width:100%;height:auto;display:block;max-height:440px}
+.mapa polygon{cursor:pointer;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.mapa polygon.sel{stroke-width:4}
+.mapa text{font-weight:700;pointer-events:none;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
+.vacio-panel{padding:24px 10px;text-align:center;color:var(--ink-2)}
+.tabla-admin input,.tabla-admin select{min-height:44px;border:2px solid var(--line);border-radius:10px;padding:4px 8px;background:var(--bg);width:100%}
+.interruptor{display:inline-flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-weight:700}
+.interruptor input{width:24px;height:24px;accent-color:var(--leaf)}
+.bienvenida{max-width:640px;margin:0 auto;padding:28px 18px 60px}
+.bienvenida h1{font-size:2rem;margin:14px 0 6px}
+.cargando{min-height:60vh;display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;z-index:80;font-weight:700;max-width:90vw}
+.pie-fijo{position:fixed;left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom,0px));z-index:15;background:var(--bg);border-top:2px solid var(--line);padding:10px 14px}
+.pie-fijo>div{max-width:760px;margin:0 auto;display:flex;gap:10px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="root"><div class="cargando">Cargando…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   CAPA 1 — MODELO DE DATOS (sin UI)
+   Cada colección se mapea a una tabla de PostgreSQL. Las plantas y hojas
+   viajan anidadas en su EvaluacionTabla (un documento por tabla evaluada),
+   pero cada una conserva su propio id y llave foránea para aplanarse
+   directo a las tablas Planta y Hoja.
+   Convención: hmj_* = número de hoja; 0 = "no presenta"; null = sin capturar.
+   ===================================================================== */
+const Modelo = (() => {
+  const uuid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  const ahora = () => new Date().toISOString();
+  const pad = n => String(n).padStart(2, '0');
+  const fechaStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hoy = () => fechaStr(new Date());
+  const ymd = s => { const [y, m, d] = s.split('-').map(Number); return [y, m - 1, d]; };
+  const sumarDias = (s, n) => { const [y, m, d] = ymd(s); const t = new Date(Date.UTC(y, m, d + n)); return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`; };
+  const diasEntre = (a, b) => Math.round((Date.UTC(...ymd(b)) - Date.UTC(...ymd(a))) / 864e5);
+  function semanaISO(s) {
+    const [y, m, d] = ymd(s);
+    const dt = new Date(Date.UTC(y, m, d));
+    const dia = dt.getUTCDay() || 7;
+    dt.setUTCDate(dt.getUTCDate() + 4 - dia);
+    const anio = dt.getUTCFullYear();
+    const sem = Math.ceil(((dt - Date.UTC(anio, 0, 1)) / 864e5 + 1) / 7);
+    return `${anio}-W${pad(sem)}`;
+  }
+  function lunesDeSemana(clave) {
+    const [a, w] = clave.split('-W').map(Number);
+    const ene4 = new Date(Date.UTC(a, 0, 4));
+    const dia = ene4.getUTCDay() || 7;
+    const l = new Date(Date.UTC(a, 0, 4 - dia + 1 + (w - 1) * 7));
+    return `${l.getUTCFullYear()}-${pad(l.getUTCMonth() + 1)}-${pad(l.getUTCDate())}`;
+  }
+  const sumarSemanas = (clave, n) => semanaISO(sumarDias(lunesDeSemana(clave), 7 * n));
+  function rangoSemanas(desde, hasta) {
+    const out = []; let k = desde, g = 0;
+    while (k <= hasta && g++ < 600) { out.push(k); k = sumarSemanas(k, 1); }
+    return out;
+  }
+  const base = () => { const t = ahora(); return { id: uuid(), created_at: t, updated_at: t, eliminado: false }; };
+
+  const nuevaTabla = p => ({ ...base(), codigo: '', nombre: '', superficie_ha: null, variedad: '', geometria: null, activa: true, origen: 'manual', ...p });
+  const nuevoUsuario = p => ({ ...base(), nombre: '', rol: 'operador', activo: true, ...p });
+  const nuevoRecorrido = ({ fecha, usuario_id }) => ({ ...base(), fecha, semana_iso: semanaISO(fecha), usuario_id, estado: 'en_curso' });
+  const nuevaEvaluacion = ({ recorrido_id, tabla_id, tipo = 'stover' }) => ({ ...base(), recorrido_id, tabla_id, tipo, hora_inicio: null, hora_fin: null, plantas: [] });
+  function ajustarHojas(planta, th) {
+    const hojas = (planta.hojas || []).slice(0, th);
+    for (let i = hojas.length + 1; i <= th; i++) hojas.push({ id: uuid(), planta_id: planta.id, numero_hoja: i, grado_gauhl: null });
+    return hojas;
+  }
+  function nuevaPlanta(evaluacion_tabla_id, numero, previa) {
+    const b = base(); delete b.eliminado;
+    const p = { ...b, evaluacion_tabla_id, numero_planta: numero, total_hojas: previa ? previa.total_hojas : 10,
+      hmj_pizca: null, hmj_estria: null, hmj_mancha: null, observaciones: '', gps: null, hojas: [] };
+    p.hojas = ajustarHojas(p, p.total_hojas);
+    return p;
+  }
+  const nuevaAplicacion = p => ({ ...base(), fecha: hoy(), tabla_ids: [], producto: '', ingrediente_activo: '', grupo_frac: '',
+    dosis: null, unidad: 'L/ha', volumen_mezcla: null, metodo: 'Terrestre', usuario_id: null, responsable: '', observaciones: '', ...p });
+  const configInicial = () => ({ id: 'umbrales', created_at: ahora(), updated_at: ahora(), eliminado: false,
+    ii_verde: 20, ii_amarillo: 30, dias_alerta_aplicacion: 14, rancho_lat: 18.885, rancho_lon: -103.905 });
+
+  return { uuid, ahora, hoy, sumarDias, diasEntre, semanaISO, lunesDeSemana, sumarSemanas, rangoSemanas, ajustarHojas,
+    nuevaTabla, nuevoUsuario, nuevoRecorrido, nuevaEvaluacion, nuevaPlanta, nuevaAplicacion, configInicial };
+})();
+
+/* =====================================================================
+   CAPA 2 — CÁLCULOS (funciones puras, reutilizables en servidor)
+   ===================================================================== */
+const Calc = (() => {
+  const GRADOS = [
+    { g: 0, rango: 'Sin síntomas' }, { g: 1, rango: '≤10 manchas o <1 %' }, { g: 2, rango: '1–5 %' },
+    { g: 3, rango: '6–15 %' }, { g: 4, rango: '16–33 %' }, { g: 5, rango: '34–50 %' }, { g: 6, rango: '51–100 %' }];
+  const N_GRADOS = 7;
+  const completa = p => p.total_hojas > 0 && p.hojas.length === p.total_hojas && p.hojas.every(h => h.grado_gauhl != null);
+  const hf = p => p.hojas.filter(h => h.grado_gauhl != null && h.grado_gauhl <= 4).length;
+  // II = [Σ(n·b) / ((N−1)·T)] × 100 ; T = hojas evaluadas (calificadas)
+  function ii(grados) {
+    const g = grados.filter(x => x != null);
+    if (!g.length) return null;
+    return g.reduce((a, b) => a + b, 0) / ((N_GRADOS - 1) * g.length) * 100;
+  }
+  const iiPlanta = p => ii(p.hojas.map(h => h.grado_gauhl));
+  const prom = arr => { const v = arr.filter(x => x != null && !isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  function sintoma(ps, k) {
+    const vals = ps.map(p => p[k]);
+    return { prom: prom(vals.filter(v => v > 0)), no_presenta: vals.filter(v => v === 0).length, sin_capturar: vals.filter(v => v == null).length };
+  }
+  function resumen(plantas) {
+    const ps = (plantas || []).filter(p => p && !p.eliminado);
+    const todas = ps.flatMap(p => p.hojas.map(h => h.grado_gauhl));
+    return { n: ps.length, completas: ps.filter(completa).length, ii: ii(todas), th: prom(ps.map(p => p.total_hojas)), hf: prom(ps.map(hf)),
+      pizca: sintoma(ps, 'hmj_pizca'), estria: sintoma(ps, 'hmj_estria'), mancha: sintoma(ps, 'hmj_mancha'),
+      hojas_evaluadas: todas.filter(x => x != null).length };
+  }
+  function distribucion(plantas) {
+    const max = Math.max(0, ...plantas.map(p => p.hojas.length));
+    const m = Array.from({ length: max }, () => [0, 0, 0, 0, 0, 0, 0]);
+    plantas.forEach(p => p.hojas.forEach(h => { if (h.grado_gauhl != null) m[h.numero_hoja - 1][h.grado_gauhl]++; }));
+    return m;
+  }
+  function validar(p) {
+    const errores = [], avisos = [];
+    const th = p.total_hojas;
+    [['hmj_pizca', 'pizca'], ['hmj_estria', 'estría'], ['hmj_mancha', 'mancha']].forEach(([k, n]) => {
+      if (p[k] > th) errores.push(`La hoja más joven con ${n} (${p[k]}) es mayor que el total de hojas (${th}).`);
+      if (p[k] == null) avisos.push(`Falta indicar la hoja más joven con ${n}.`);
+    });
+    const a = p.hmj_pizca, b = p.hmj_estria, c = p.hmj_mancha;
+    if (a > 0 && b > 0 && a > b) avisos.push('La pizca está en una hoja más vieja que la estría; lo normal es pizca ≤ estría.');
+    if (b > 0 && c > 0 && b > c) avisos.push('La estría está en una hoja más vieja que la mancha; lo normal es estría ≤ mancha.');
+    if (a > 0 && c > 0 && a > c && !(b > 0)) avisos.push('La pizca está en una hoja más vieja que la mancha.');
+    const faltan = p.hojas.filter(h => h.grado_gauhl == null).length;
+    if (faltan) avisos.push(`Faltan ${faltan} hoja(s) por calificar.`);
+    return { errores, avisos };
+  }
+  function semaforo(v, u) { if (v == null) return 'sin'; if (v < u.ii_verde) return 'verde'; if (v < u.ii_amarillo) return 'amarillo'; return 'rojo'; }
+  return { GRADOS, completa, hf, ii, iiPlanta, prom, resumen, distribucion, validar, semaforo };
+})();
+
+/* =====================================================================
+   CAPA 2b — ANÁLISIS: agregación semanal, aplicaciones, clima
+   ===================================================================== */
+const vivos = obj => Object.values(obj || {}).filter(r => r && !r.eliminado);
+
+const Analisis = (() => {
+  const INDICADORES = [
+    { k: 'ii', nombre: 'Índice de infección', corto: 'II', unidad: '%', dec: 1, peorSi: 'sube', get: r => r.ii },
+    { k: 'th', nombre: 'Total de hojas', corto: 'TH', unidad: '', dec: 1, peorSi: 'baja', get: r => r.th },
+    { k: 'hf', nombre: 'Hojas funcionales', corto: 'HF', unidad: '', dec: 1, peorSi: 'baja', get: r => r.hf },
+    { k: 'hmje', nombre: 'Hoja más joven con estría', corto: 'HMJE', unidad: '', dec: 1, peorSi: 'baja', get: r => r.estria.prom },
+    { k: 'hmjm', nombre: 'Hoja más joven con mancha', corto: 'HMJM', unidad: '', dec: 1, peorSi: 'baja', get: r => r.mancha.prom },
+    { k: 'pizca', nombre: 'Hoja más joven con pizca', corto: 'Pizca', unidad: '', dec: 1, peorSi: 'baja', get: r => r.pizca.prom }];
+  function filas(datos, f = {}) {
+    const recs = datos.recorridos;
+    const out = [];
+    vivos(datos.evaluaciones).forEach(ev => {
+      if (ev.tipo !== 'stover') return;
+      const rec = recs[ev.recorrido_id];
+      if (!rec || rec.eliminado) return;
+      if (f.desde && rec.fecha < f.desde) return;
+      if (f.hasta && rec.fecha > f.hasta) return;
+      if (f.operador && rec.usuario_id !== f.operador) return;
+      if (f.tablas && f.tablas.length && !f.tablas.includes(ev.tabla_id)) return;
+      out.push({ ev, rec, semana: rec.semana_iso, tabla_id: ev.tabla_id });
+    });
+    return out;
+  }
+  // Map tabla_id -> Map semana -> {resumen, plantas}
+  function serie(fs) {
+    const tmp = new Map();
+    fs.forEach(x => {
+      if (!tmp.has(x.tabla_id)) tmp.set(x.tabla_id, new Map());
+      const m = tmp.get(x.tabla_id);
+      if (!m.has(x.semana)) m.set(x.semana, []);
+      m.get(x.semana).push(...x.ev.plantas);
+    });
+    const out = new Map();
+    tmp.forEach((m, t) => { const mm = new Map(); m.forEach((ps, s) => { if (ps.length) mm.set(s, { r: Calc.resumen(ps), plantas: ps }); }); out.set(t, mm); });
+    return out;
+  }
+  function valorEn(serieTabla, semana, ind) { const x = serieTabla && serieTabla.get(semana); return x ? ind.get(x.r) : null; }
+  function previa(serieTabla, semana) {
+    if (!serieTabla) return null;
+    const ks = [...serieTabla.keys()].filter(k => k < semana).sort();
+    return ks.length ? ks[ks.length - 1] : null;
+  }
+  function aplicacionesDeTabla(datos, tablaId) {
+    return vivos(datos.aplicaciones).filter(a => a.tabla_ids.includes(tablaId)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }
+  function ultimaAplicacion(datos, tablaId, hasta) {
+    const l = aplicacionesDeTabla(datos, tablaId).filter(a => !hasta || a.fecha <= hasta);
+    return l.length ? l[l.length - 1] : null;
+  }
+  // Repetición de grupo FRAC en aplicaciones consecutivas de una tabla
+  function repeticionesFrac(datos) {
+    const res = [];
+    vivos(datos.tablas).forEach(t => {
+      const l = aplicacionesDeTabla(datos, t.id);
+      for (let i = 1; i < l.length; i++) {
+        if (l[i].grupo_frac && l[i].grupo_frac === l[i - 1].grupo_frac) res.push({ tabla: t, a: l[i], b: l[i - 1] });
+      }
+    });
+    return res;
+  }
+  // Efecto: II en la semana de aplicación (o la previa evaluada) vs 2 y 4 semanas después
+  function efectoAplicacion(serieCompleta, app, tablaId) {
+    const st = serieCompleta.get(tablaId);
+    if (!st) return null;
+    const s0 = Modelo.semanaISO(app.fecha);
+    const ii = Analisis.INDICADORES[0];
+    let antesSem = st.has(s0) ? s0 : previa(st, s0);
+    const antes = antesSem ? valorEn(st, antesSem, ii) : null;
+    const buscar = (n) => { for (const d of [n, n + 1, n - 1]) { const k = Modelo.sumarSemanas(s0, d); if (st.has(k)) return { sem: k, v: valorEn(st, k, ii) }; } return null; };
+    const d2 = buscar(2), d4 = buscar(4);
+    return { antesSem, antes, d2, d4 };
+  }
+  return { INDICADORES, filas, serie, valorEn, previa, aplicacionesDeTabla, ultimaAplicacion, repeticionesFrac, efectoAplicacion };
+})();
+
+const Clima = (() => {
+  const CAMPOS = ['fecha', 'temp_max', 'temp_min', 'temp_media', 'hr_media', 'precipitacion', 'horas_hr_alta'];
+  function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // Datos simulados con estacionalidad aproximada de Tecomán (lluvias jun–oct)
+  function simular(desde, hasta, seed = 11) {
+    const r = rng(seed);
+    const pLluvia = [0.05, 0.03, 0.02, 0.02, 0.05, 0.40, 0.60, 0.62, 0.66, 0.42, 0.10, 0.05];
+    const out = []; let f = desde, g = 0, humedo = 0;
+    while (f <= hasta && g++ < 1500) {
+      const mes = Number(f.slice(5, 7)) - 1;
+      const llueve = r() < pLluvia[mes] + humedo * 0.15;
+      humedo = llueve ? 1 : humedo * 0.5;
+      const lluvioso = pLluvia[mes] > 0.3;
+      const pp = llueve ? Math.round((-Math.log(1 - r()) * (lluvioso ? 16 : 6)) * 10) / 10 : 0;
+      const tmax = 31 + (mes >= 3 && mes <= 5 ? 1.6 : 0) - (llueve ? 1.8 : 0) + (r() - 0.5) * 2;
+      const tmin = (lluvioso ? 23 : mes <= 1 || mes === 11 ? 17.5 : 20) + (r() - 0.5) * 2;
+      const hr = Math.min(98, (lluvioso ? 80 : 66) + (llueve ? 8 : 0) + (r() - 0.5) * 8);
+      const horas = Math.max(0, Math.round(((hr - 62) / 36) * 16 + (llueve ? 2 : 0) + (r() - 0.5) * 3));
+      out.push({ fecha: f, temp_max: +tmax.toFixed(1), temp_min: +tmin.toFixed(1), temp_media: +((tmax + tmin) / 2).toFixed(1),
+        hr_media: +hr.toFixed(1), precipitacion: pp, horas_hr_alta: Math.min(24, horas), fuente: 'simulado' });
+      f = Modelo.sumarDias(f, 1);
+    }
+    return out;
+  }
+  function parseCSV(texto) {
+    const lineas = texto.replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim());
+    if (lineas.length < 2) throw new Error('El CSV no tiene filas de datos.');
+    const sep = (lineas[0].match(/;/g) || []).length > (lineas[0].match(/,/g) || []).length ? ';' : ',';
+    const cab = lineas[0].split(sep).map(s => s.trim().toLowerCase());
+    const idx = Object.fromEntries(CAMPOS.map(c => [c, cab.indexOf(c)]));
+    if (idx.fecha < 0) throw new Error('Falta la columna "fecha" (formato AAAA-MM-DD).');
+    const dias = [];
+    lineas.slice(1).forEach(l => {
+      const c = l.split(sep).map(s => s.trim());
+      const fecha = c[idx.fecha];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return;
+      const num = k => idx[k] >= 0 && c[idx[k]] !== '' ? Number(c[idx[k]].replace(',', '.')) : null;
+      const d = { fecha, fuente: 'csv' };
+      CAMPOS.slice(1).forEach(k => { d[k] = num(k); });
+      if (d.temp_media == null && d.temp_max != null && d.temp_min != null) d.temp_media = +((d.temp_max + d.temp_min) / 2).toFixed(1);
+      dias.push(d);
+    });
+    if (!dias.length) throw new Error('No se encontró ninguna fila con fecha válida.');
+    return dias;
+  }
+  function todosLosDias(datos) { return vivos(datos.clima).flatMap(m => m.dias || []).sort((a, b) => a.fecha.localeCompare(b.fecha)); }
+  function porSemana(dias) {
+    const m = new Map();
+    dias.forEach(d => {
+      const k = Modelo.semanaISO(d.fecha);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(d);
+    });
+    const out = new Map();
+    m.forEach((ds, k) => {
+      const p = c => Calc.prom(ds.map(d => d[c]));
+      const s = c => { const v = ds.map(d => d[c]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
+      out.set(k, { dias: ds.length, temp_max: p('temp_max'), temp_min: p('temp_min'), temp_media: p('temp_media'), hr_media: p('hr_media'),
+        precipitacion: s('precipitacion'), horas_hr_alta: s('horas_hr_alta'), dias_lluvia: ds.filter(d => d.precipitacion > 1).length });
+    });
+    return out;
+  }
+  // Documentos por mes (agrupación del prototipo); en producción, una fila por día en ClimaDiario
+  function aDocumentosMes(dias, existentes) {
+    const porMes = {};
+    dias.forEach(d => { const k = d.fecha.slice(0, 7); (porMes[k] = porMes[k] || {})[d.fecha] = d; });
+    return Object.entries(porMes).map(([mes, nuevos]) => {
+      const prev = existentes[mes];
+      const mapa = {};
+      (prev && !prev.eliminado ? prev.dias : []).forEach(d => { mapa[d.fecha] = d; });
+      Object.assign(mapa, nuevos);
+      const t = Modelo.ahora();
+      return { id: mes, mes, dias: Object.values(mapa).sort((a, b) => a.fecha.localeCompare(b.fecha)),
+        created_at: prev ? prev.created_at : t, updated_at: t, eliminado: false };
+    });
+  }
+  return { CAMPOS, rng, simular, parseCSV, todosLosDias, porSemana, aDocumentosMes };
+})();
+
+/* =====================================================================
+   CAPA 2c — IMPORTACIÓN DE POLÍGONOS (KMZ / KML)
+   ===================================================================== */
+const Geo = (() => {
+  const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number))
+    .filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(a => [a[0], a[1]]);
+  function areaHa(anillo) {
+    if (!anillo || anillo.length < 3) return 0;
+    const lat0 = anillo.reduce((s, p) => s + p[1], 0) / anillo.length;
+    const k = Math.cos(lat0 * Math.PI / 180);
+    let a = 0;
+    for (let i = 0; i < anillo.length; i++) {
+      const [x1, y1] = anillo[i], [x2, y2] = anillo[(i + 1) % anillo.length];
+      a += (x1 * 111320 * k) * (y2 * 110574) - (x2 * 111320 * k) * (y1 * 110574);
+    }
+    return Math.abs(a) / 2 / 10000;
+  }
+  const centroide = anillo => [anillo.reduce((s, p) => s + p[0], 0) / anillo.length, anillo.reduce((s, p) => s + p[1], 0) / anillo.length];
+  const cerrar = a => (a.length && (a[0][0] !== a[a.length - 1][0] || a[0][1] !== a[a.length - 1][1])) ? [...a, a[0]] : a;
+  async function leer(file) {
+    let texto;
+    if (/\.kmz$/i.test(file.name)) {
+      if (!window.JSZip) throw new Error('No se pudo cargar el lector de KMZ. Revisa tu conexión e intenta de nuevo.');
+      const zip = await JSZip.loadAsync(file);
+      const kml = Object.values(zip.files).find(f => /\.kml$/i.test(f.name));
+      if (!kml) throw new Error('El KMZ no contiene un archivo KML.');
+      texto = await kml.async('string');
+    } else texto = await file.text();
+    const xml = new DOMParser().parseFromString(texto, 'application/xml');
+    if (xml.getElementsByTagName('parsererror').length) throw new Error('El archivo KML no es válido.');
+    const tag = (el, n) => [...el.getElementsByTagNameNS('*', n)];
+    const res = [];
+    tag(xml, 'Placemark').forEach((pm, i) => {
+      const nombre = ((tag(pm, 'name')[0] || {}).textContent || '').trim() || `Tabla ${i + 1}`;
+      let anillos = tag(pm, 'Polygon').map(pg => { const ob = tag(pg, 'outerBoundaryIs')[0] || pg; const c = tag(ob, 'coordinates')[0]; return parseCoords(c ? c.textContent : ''); });
+      if (!anillos.length) anillos = [...tag(pm, 'LinearRing'), ...tag(pm, 'LineString')].map(l => { const c = tag(l, 'coordinates')[0]; return parseCoords(c ? c.textContent : ''); });
+      anillos = anillos.filter(a => a.length >= 3).sort((a, b) => areaHa(b) - areaHa(a));
+      if (!anillos.length) return;
+      res.push({ nombre, anillo: cerrar(anillos[0]) });
+    });
+    if (!res.length) throw new Error('No se encontraron polígonos en el archivo.');
+    return res;
+  }
+  // Catálogo de ejemplo cerca de Tecomán (reemplazar con el KMZ real)
+  function catalogoEjemplo() {
+    const lat0 = 18.884, lon0 = -103.912, dLat = 0.0029, dLon = 0.0031;
+    const out = [];
+    let n = 1;
+    for (let f = 0; f < 3; f++) for (let c = 0; c < 4; c++) {
+      const y = lat0 - f * dLat * 1.05, x = lon0 + c * dLon * 1.04 + f * 0.0004;
+      const j = (n * 37 % 10) / 10000;
+      const anillo = cerrar([[x, y], [x + dLon + j, y + 0.0002], [x + dLon, y - dLat], [x - 0.0001, y - dLat + j]]);
+      out.push({ nombre: `T-${String(n).padStart(2, '0')}`, anillo, variedad: n % 4 === 0 ? 'Macho' : 'Gran Enano' });
+      n++;
+    }
+    return out;
+  }
+  return { leer, areaHa, centroide, catalogoEjemplo };
+})();
+
+/* =====================================================================
+   CAPA 3 — ALMACÉN LOCAL (IndexedDB → misma API en la PWA)
+   ===================================================================== */
+const COLECCIONES = ['tablas', 'usuarios', 'config', 'recorridos', 'evaluaciones', 'aplicaciones', 'clima'];
+
+const Almacen = (() => {
+  let dbp = null, modo = 'indexeddb';
+  const mem = new Map();
+  function abrir() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open('sigatoka-prototipo', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('registros', { keyPath: 'k' });
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+    return dbp;
+  }
+  async function cargarTodo() {
+    try {
+      const db = await abrir();
+      return await new Promise((res, rej) => {
+        const q = db.transaction('registros', 'readonly').objectStore('registros').getAll();
+        q.onsuccess = () => res(q.result || []); q.onerror = () => rej(q.error);
+      });
+    } catch (e) { modo = 'memoria'; return []; }
+  }
+  async function guardarVarios(items) {
+    const vals = items.map(({ col, rec, pendiente }) => ({ k: col + '/' + rec.id, col, pendiente, data: rec }));
+    if (modo === 'memoria') { vals.forEach(v => mem.set(v.k, v)); return; }
+    try {
+      const db = await abrir();
+      await new Promise((res, rej) => {
+        const tx = db.transaction('registros', 'readwrite');
+        const st = tx.objectStore('registros');
+        vals.forEach(v => st.put(v));
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    } catch (e) { modo = 'memoria'; vals.forEach(v => mem.set(v.k, v)); }
+  }
+  async function borrarTodo() {
+    mem.clear();
+    try { const db = await abrir(); await new Promise(r => { const tx = db.transaction('registros', 'readwrite'); tx.objectStore('registros').clear(); tx.oncomplete = r; tx.onerror = r; }); } catch (e) { }
+  }
+  async function borrar(k) {
+    mem.delete(k);
+    if (modo === 'memoria') return;
+    try { const db = await abrir(); await new Promise(r => { const tx = db.transaction('registros', 'readwrite'); tx.objectStore('registros').delete(k); tx.oncomplete = r; tx.onerror = r; }); } catch (e) { }
+  }
+  return { cargarTodo, guardarVarios, borrar, borrarTodo, get modo() { return modo; } };
+})();
+
+/* =====================================================================
+   CAPA 4 — ESTADO EN MEMORIA + COLA DE SINCRONIZACIÓN
+   ===================================================================== */
+const Store = (() => {
+  let estado = {
+    cargado: false,
+    datos: Object.fromEntries(COLECCIONES.map(c => [c, {}])),
+    pendientes: {},
+    sync: { modo: 'detectando', online: navigator.onLine, simularOffline: false, enviando: false, ultimo: null, error: null, listo: false }
+  };
+  const subs = new Set();
+  const emitir = () => { estado = { ...estado }; subs.forEach(f => f()); };
+  const get = () => estado;
+  const suscribir = f => { subs.add(f); return () => subs.delete(f); };
+  async function cargar() {
+    const regs = await Almacen.cargarTodo();
+    const datos = Object.fromEntries(COLECCIONES.map(c => [c, {}]));
+    const pend = {};
+    regs.forEach(r => { if (datos[r.col]) { datos[r.col][r.data.id] = r.data; if (r.pendiente) pend[r.k] = true; } });
+    estado = { ...estado, datos, pendientes: pend, cargado: true };
+    emitir();
+  }
+  function aplicar(col, recs, pendiente) {
+    const c = { ...estado.datos[col] };
+    const p = { ...estado.pendientes };
+    recs.forEach(r => { c[r.id] = r; if (pendiente) p[col + '/' + r.id] = true; else delete p[col + '/' + r.id]; });
+    estado.datos = { ...estado.datos, [col]: c };
+    estado.pendientes = p;
+  }
+  function put(col, rec) {
+    const r = { ...rec, updated_at: Modelo.ahora() };
+    aplicar(col, [r], true);
+    Almacen.guardarVarios([{ col, rec: r, pendiente: true }]);
+    emitir(); Sync.programar();
+    return r;
+  }
+  function putMuchos(col, recs) {
+    if (!recs.length) return;
+    const t = Modelo.ahora();
+    const rs = recs.map(r => ({ ...r, updated_at: r.updated_at && r._conservarFecha ? r.updated_at : t }));
+    rs.forEach(r => delete r._conservarFecha);
+    aplicar(col, rs, true);
+    Almacen.guardarVarios(rs.map(rec => ({ col, rec, pendiente: true })));
+    emitir(); Sync.programar();
+  }
+  function eliminar(col, id) { const r = estado.datos[col][id]; if (r) put(col, { ...r, eliminado: true }); }
+  function mergeRemoto(col, rec) {
+    const local = estado.datos[col] && estado.datos[col][rec.id];
+    if (local && local.updated_at >= rec.updated_at) return false;
+    aplicar(col, [rec], false);
+    Almacen.guardarVarios([{ col, rec, pendiente: false }]);
+    return true;
+  }
+  function quitarRemoto(col, id) {
+    const k = col + '/' + id;
+    if (!estado.datos[col] || !estado.datos[col][id] || estado.pendientes[k]) return false;
+    const c = { ...estado.datos[col] }; delete c[id];
+    estado.datos = { ...estado.datos, [col]: c };
+    Almacen.borrar(k);
+    return true;
+  }
+  function marcarSincronizado(col, rec) {
+    aplicar(col, [rec], false);
+    Almacen.guardarVarios([{ col, rec, pendiente: false }]);
+    emitir();
+  }
+  function setSync(cambios) { estado.sync = { ...estado.sync, ...cambios }; emitir(); }
+  async function borrarLocal() {
+    await Almacen.borrarTodo();
+    estado = { ...estado, datos: Object.fromEntries(COLECCIONES.map(c => [c, {}])), pendientes: {} };
+    emitir();
+  }
+  return { get, suscribir, cargar, put, putMuchos, eliminar, mergeRemoto, quitarRemoto, marcarSincronizado, setSync, emitir, borrarLocal };
+})();
+
+const Sync = (() => {
+  let db = null, timer = null, corriendo = false, pausado = false, unsubs = [], recibidos = new Set();
+  const conectado = () => { const s = Store.get().sync; return s.online && !s.simularOffline; };
+  async function iniciar() {
+    try { if (window.claude && typeof window.claude.use === 'function') db = await window.claude.use('db'); } catch (e) { db = null; }
+    Store.setSync({ modo: db ? 'servidor' : 'local' });
+    window.addEventListener('online', () => { Store.setSync({ online: true }); reconectar(); });
+    window.addEventListener('offline', () => Store.setSync({ online: false }));
+    if (db && conectado()) {
+      suscribir();
+      setTimeout(() => { if (!Store.get().sync.listo) Store.setSync({ listo: true }); }, 6000);
+    } else Store.setSync({ listo: true });
+    programar(800);
+  }
+  function cancelar() { unsubs.forEach(u => { try { u(); } catch (e) { } }); unsubs = []; }
+  function suscribir() {
+    cancelar(); recibidos = new Set();
+    COLECCIONES.forEach(col => {
+      try {
+        const u = db.collection(col).onSnapshot(snap => {
+          recibidos.add(col);
+          if (conectado()) {
+            let cambio = false;
+            snap.docChanges().forEach(ch => {
+              if (ch.type === 'removed') { if (Store.quitarRemoto(col, ch.doc.id)) cambio = true; return; }
+              const d = ch.doc.data();
+              if (d && d.id && Store.mergeRemoto(col, JSON.parse(JSON.stringify(d)))) cambio = true;
+            });
+            if (cambio) Store.emitir();
+          }
+          if (recibidos.size === COLECCIONES.length && !Store.get().sync.listo) Store.setSync({ listo: true, ultimo: Modelo.ahora() });
+        }, err => Store.setSync({ error: err && err.code ? err.code : 'error', listo: true }));
+        unsubs.push(u);
+      } catch (e) { Store.setSync({ error: 'suscripcion' }); }
+    });
+  }
+  function reconectar() { if (db && conectado() && !pausado) { suscribir(); programar(300); } }
+  function detener() { pausado = true; cancelar(); clearTimeout(timer); }
+  function reanudar() { pausado = false; reconectar(); }
+  // Borra todos los documentos del almacén compartido (reinicio del rancho)
+  async function borrarServidor(onProgreso) {
+    while (corriendo) await new Promise(r => setTimeout(r, 200));
+    let n = 0;
+    for (const col of COLECCIONES) {
+      for (let vuelta = 0; vuelta < 60; vuelta++) {
+        const snap = await db.collection(col).limit(500).get();
+        if (snap.empty) break;
+        for (const d of snap.docs) {
+          try { await db.collection(col).doc(d.id).delete(); }
+          catch (e) { if (e && e.code === 'unavailable') { await new Promise(r => setTimeout(r, 800)); await db.collection(col).doc(d.id).delete(); } else throw e; }
+          n++; if (onProgreso) onProgreso(n);
+        }
+      }
+    }
+    return n;
+  }
+  async function empujar() {
+    if (!db || corriendo || pausado || !conectado()) return;
+    const pend = Object.keys(Store.get().pendientes);
+    if (!pend.length) return;
+    corriendo = true; Store.setSync({ enviando: true });
+    let error = null;
+    for (const k of pend) {
+      if (!conectado() || pausado) break;
+      const i = k.indexOf('/'); const col = k.slice(0, i), id = k.slice(i + 1);
+      const rec = Store.get().datos[col] && Store.get().datos[col][id];
+      if (!rec) continue;
+      const enviar = (col === 'recorridos' && rec.estado === 'cerrado') ? { ...rec, estado: 'sincronizado' } : rec;
+      try {
+        await escribir(col, id, JSON.parse(JSON.stringify(enviar)));
+        const actual = Store.get().datos[col][id];
+        if (actual && actual.updated_at === rec.updated_at) Store.marcarSincronizado(col, enviar);
+      } catch (e) { error = (e && e.code) || 'error'; if (error === 'quota_exceeded' || error === 'invalid_argument' || error === 'revoked') break; }
+    }
+    corriendo = false;
+    Store.setSync({ enviando: false, error, ultimo: error ? Store.get().sync.ultimo : Modelo.ahora() });
+    if (!error && Object.keys(Store.get().pendientes).length && conectado()) programar(1500);
+    else if (error === 'unavailable' || error === 'resource_exhausted') programar(15000);
+  }
+  async function escribir(col, id, data) {
+    try { await db.collection(col).doc(id).set(data); }
+    catch (e) { if (e && e.code === 'unavailable') { await new Promise(r => setTimeout(r, 600 + Math.random() * 900)); await db.collection(col).doc(id).set(data); } else throw e; }
+  }
+  function programar(ms = 1500) { clearTimeout(timer); timer = setTimeout(empujar, ms); }
+  function simularSinSenal(v) { Store.setSync({ simularOffline: v }); if (!v) reconectar(); }
+  return { iniciar, programar, simularSinSenal, detener, reanudar, borrarServidor, conectado, ahora: () => programar(50), get disponible() { return !!db; } };
+})();
+
+const Reinicio = {
+  // Borra todo: almacén compartido (si existe), IndexedDB y preferencias locales
+  async todo(onProgreso) {
+    if (Sync.disponible && !Sync.conectado()) throw new Error('Necesitas conexión para vaciar el almacén compartido.');
+    Sync.detener();
+    try {
+      if (Sync.disponible) await Sync.borrarServidor(onProgreso);
+      await Store.borrarLocal();
+      ['nav', 'tab', 'usuario', 'f.desde', 'f.hasta'].forEach(k => { try { localStorage.removeItem('sigatoka.' + k); } catch (e) { } });
+      window.dispatchEvent(new CustomEvent('reinicio'));
+    } finally { Sync.reanudar(); }
+  }
+};
+
+/* =====================================================================
+   DATOS DE DEMOSTRACIÓN (solo prototipo)
+   ===================================================================== */
+const Demo = (() => {
+  const PRODUCTOS = [
+    { producto: 'Mancozeb 80 PH', ia: 'Mancozeb', frac: 'M03', dosis: 2.5, unidad: 'kg/ha' },
+    { producto: 'Difenoconazol 250 CE', ia: 'Difenoconazol', frac: '3', dosis: 0.4, unidad: 'L/ha' },
+    { producto: 'Azoxistrobina 250 SC', ia: 'Azoxistrobina', frac: '11', dosis: 0.4, unidad: 'L/ha' },
+    { producto: 'Pirimetanil 400 SC', ia: 'Pirimetanil', frac: '9', dosis: 1.0, unidad: 'L/ha' },
+    { producto: 'Fluopiram 500 SC', ia: 'Fluopiram', frac: '7', dosis: 0.3, unidad: 'L/ha' },
+    { producto: 'Clorotalonil 720 SC', ia: 'Clorotalonil', frac: 'M05', dosis: 1.5, unidad: 'L/ha' }];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function planta(evId, num, s, r) {
+    const p = Modelo.nuevaPlanta(evId, num, null);
+    const th = clamp(Math.round(13 - 3 * s + (r() - 0.5) * 3), 6, 16);
+    const onset = 5.6 - 3 * s + (r() - 0.5) * 1.2, slope = 0.18 + 0.62 * s;
+    let prev = 0;
+    p.total_hojas = th;
+    p.hojas = [];
+    for (let i = 1; i <= th; i++) {
+      let g = clamp(Math.round(Math.max(0, i - onset) * slope + (r() - 0.5) * 0.9), 0, 6);
+      if (i <= 2 && r() < 0.9) g = 0;
+      g = Math.max(g, prev - 1); prev = g;
+      p.hojas.push({ id: Modelo.uuid(), planta_id: p.id, numero_hoja: i, grado_gauhl: g });
+    }
+    const primera = min => { const h = p.hojas.find(h => h.grado_gauhl >= min); return h ? h.numero_hoja : 0; };
+    p.hmj_pizca = primera(1); p.hmj_estria = primera(2); p.hmj_mancha = primera(3);
+    if (r() < 0.06) p.observaciones = ['Racimo pequeño', 'Planta con hijo de agua cerca', 'Hoja doblada por viento'][Math.floor(r() * 3)];
+    return p;
+  }
+  function generar(datos, umbrales) {
+    const r = Clima.rng(42);
+    const tablas = vivos(datos.tablas).filter(t => t.activa);
+    const usuarios = vivos(datos.usuarios);
+    const ops = usuarios.filter(u => u.rol === 'operador');
+    const admin = usuarios.find(u => u.rol === 'administrador') || usuarios[0];
+    const semAct = Modelo.semanaISO(Modelo.hoy());
+    const semanas = Modelo.rangoSemanas(Modelo.sumarSemanas(semAct, -16), Modelo.sumarSemanas(semAct, -1));
+    const diasClima = Clima.simular(Modelo.lunesDeSemana(Modelo.sumarSemanas(semAct, -24)), Modelo.hoy(), 7);
+    const cs = Clima.porSemana(diasClima);
+    const sev = {}, efecto = {}, ultima = {}, ultFrac = {}, susc = {};
+    tablas.forEach(t => { sev[t.id] = 0.12 + 0.25 * r(); efecto[t.id] = 0; susc[t.id] = 0.7 + 0.6 * r(); });
+    const recorridos = [], evaluaciones = [], aplicaciones = [];
+    let iProd = 0, nApp = 0, repetida = false;
+    const marca = o => ({ ...o, origen: 'demo' });
+    semanas.forEach((sem, si) => {
+      const fecha = Modelo.sumarDias(Modelo.lunesDeSemana(sem), 1);
+      const c = cs.get(Modelo.sumarSemanas(sem, -4));
+      const fav = c ? Math.min(1, (c.horas_hr_alta / 7) / 13 * 0.7 + Math.min(c.precipitacion || 0, 120) / 120 * 0.3) : 0.3;
+      const op = ops.length ? ops[si % ops.length] : admin;
+      const rec = marca(Modelo.nuevoRecorrido({ fecha, usuario_id: op.id }));
+      rec.estado = 'cerrado';
+      recorridos.push(rec);
+      const iiT = {};
+      tablas.forEach((t, ti) => {
+        let s = sev[t.id] * 0.6 + fav * 0.36 * susc[t.id] + (r() - 0.5) * 0.08;
+        if (efecto[t.id] > 0) { s -= 0.15; efecto[t.id]--; }
+        s = clamp(s, 0.05, 0.95); sev[t.id] = s;
+        const ev = marca(Modelo.nuevaEvaluacion({ recorrido_id: rec.id, tabla_id: t.id }));
+        ev.hora_inicio = `${fecha}T07:${String(10 + ti * 3).padStart(2, '0')}:00`;
+        ev.hora_fin = `${fecha}T07:${String(12 + ti * 3).padStart(2, '0')}:00`;
+        const n = 18 + Math.floor(r() * 3);
+        for (let k = 1; k <= n; k++) ev.plantas.push(planta(ev.id, k, s, r));
+        evaluaciones.push(ev);
+        iiT[t.id] = Calc.resumen(ev.plantas).ii;
+      });
+      const aplicar = tablas.filter(t => { const dd = ultima[t.id] ? Modelo.diasEntre(ultima[t.id], fecha) : 99; return (iiT[t.id] >= umbrales.ii_amarillo - 4 && dd >= 14) || (iiT[t.id] >= umbrales.ii_verde && dd >= 28); });
+      if (aplicar.length) {
+        nApp++;
+        // Una aplicación repite a propósito el grupo FRAC anterior de la primera tabla (para mostrar la alerta)
+        let pr = PRODUCTOS[iProd % PRODUCTOS.length];
+        const t0 = aplicar.find(t => ultFrac[t.id]);
+        if (!repetida && nApp >= 3 && t0) { pr = PRODUCTOS.find(x => x.frac === ultFrac[t0.id]) || pr; repetida = true; } else iProd++;
+        const fApp = Modelo.sumarDias(fecha, 2);
+        aplicaciones.push(marca(Modelo.nuevaAplicacion({ fecha: fApp, tabla_ids: aplicar.map(t => t.id), producto: pr.producto, ingrediente_activo: pr.ia,
+          grupo_frac: pr.frac, dosis: pr.dosis, unidad: pr.unidad, volumen_mezcla: nApp % 2 ? 25 : 200, metodo: nApp % 2 ? 'Aérea' : 'Terrestre',
+          usuario_id: admin.id, responsable: admin.nombre, observaciones: 'Dato de demostración' })));
+        aplicar.forEach(t => { ultima[t.id] = fApp; efecto[t.id] = 3; ultFrac[t.id] = pr.frac; });
+      }
+    });
+    // Recorrido abierto de la semana actual (para probar la captura)
+    if (ops.length && tablas.length) {
+      const rec = marca(Modelo.nuevoRecorrido({ fecha: Modelo.hoy(), usuario_id: ops[0].id }));
+      recorridos.push(rec);
+      tablas.slice(0, 2).forEach((t, i) => {
+        const ev = marca(Modelo.nuevaEvaluacion({ recorrido_id: rec.id, tabla_id: t.id }));
+        if (i === 0) { ev.hora_inicio = Modelo.ahora(); for (let k = 1; k <= 6; k++) ev.plantas.push(planta(ev.id, k, sev[t.id], r)); }
+        evaluaciones.push(ev);
+      });
+    }
+    const clima = Clima.aDocumentosMes(diasClima, datos.clima);
+    return { recorridos, evaluaciones, aplicaciones, clima };
+  }
+  return { generar, PRODUCTOS };
+})();
+
+/* =====================================================================
+   EXPORTACIÓN (CSV / Excel / JSON)
+   ===================================================================== */
+const Exportar = (() => {
+  const esc = v => { if (v == null) return ''; const s = String(v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = filas => '\ufeff' + filas.map(f => f.map(esc).join(',')).join('\r\n');
+  const r1 = v => v == null ? null : Math.round(v * 10) / 10;
+  function tablasPlano(datos, filtro) {
+    const tablas = datos.tablas, usuarios = datos.usuarios;
+    const fs = Analisis.filas(datos, filtro);
+    const maxH = Math.max(0, ...fs.flatMap(x => x.ev.plantas.map(p => p.hojas.length)));
+    const plantas = [['recorrido_id', 'fecha', 'semana_iso', 'operador', 'tabla', 'evaluacion_id', 'planta_id', 'numero_planta', 'total_hojas', 'hojas_funcionales', 'indice_infeccion',
+      'hmj_pizca', 'hmj_estria', 'hmj_mancha', 'observaciones', ...Array.from({ length: maxH }, (_, i) => 'hoja_' + (i + 1))]];
+    const hojas = [['planta_id', 'evaluacion_id', 'fecha', 'semana_iso', 'tabla', 'numero_planta', 'hoja_id', 'numero_hoja', 'grado_gauhl']];
+    const np = v => v === 0 ? 'no presenta' : v;
+    fs.forEach(({ ev, rec }) => {
+      const t = tablas[ev.tabla_id], u = usuarios[rec.usuario_id];
+      ev.plantas.forEach(p => {
+        plantas.push([rec.id, rec.fecha, rec.semana_iso, u ? u.nombre : '', t ? t.codigo : '', ev.id, p.id, p.numero_planta, p.total_hojas, Calc.hf(p), r1(Calc.iiPlanta(p)),
+          np(p.hmj_pizca), np(p.hmj_estria), np(p.hmj_mancha), p.observaciones, ...Array.from({ length: maxH }, (_, i) => p.hojas[i] ? p.hojas[i].grado_gauhl : '')]);
+        p.hojas.forEach(h => hojas.push([p.id, ev.id, rec.fecha, rec.semana_iso, t ? t.codigo : '', p.numero_planta, h.id, h.numero_hoja, h.grado_gauhl]));
+      });
+    });
+    const resumen = [['tabla', 'semana_iso', 'plantas', 'indice_infeccion', 'th_prom', 'hf_prom', 'pizca_prom', 'hmje_prom', 'hmjm_prom', 'plantas_sin_estria', 'plantas_sin_mancha']];
+    const s = Analisis.serie(fs);
+    s.forEach((m, tid) => [...m.keys()].sort().forEach(k => {
+      const r = m.get(k).r; const t = tablas[tid];
+      resumen.push([t ? t.codigo : tid, k, r.n, r1(r.ii), r1(r.th), r1(r.hf), r1(r.pizca.prom), r1(r.estria.prom), r1(r.mancha.prom), r.estria.no_presenta, r.mancha.no_presenta]);
+    }));
+    const apps = [['id', 'fecha', 'tablas', 'producto', 'ingrediente_activo', 'grupo_frac', 'dosis', 'unidad', 'volumen_mezcla_L_ha', 'metodo', 'responsable', 'observaciones']];
+    vivos(datos.aplicaciones).sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(a => apps.push([a.id, a.fecha, a.tabla_ids.map(i => tablas[i] ? tablas[i].codigo : '').join(' '),
+      a.producto, a.ingrediente_activo, a.grupo_frac, a.dosis, a.unidad, a.volumen_mezcla, a.metodo, a.responsable, a.observaciones]));
+    const clima = [[...Clima.CAMPOS, 'fuente']];
+    Clima.todosLosDias(datos).forEach(d => clima.push([...Clima.CAMPOS.map(c => d[c]), d.fuente]));
+    return { plantas, hojas, resumen, apps, clima };
+  }
+  async function descargar(nombre, contenido) {
+    try {
+      if (window.claude && typeof window.claude.use === 'function') {
+        const d = await window.claude.use('downloads');
+        if (d) { await d.save({ filename: nombre, data: contenido }); return 'ok'; }
+      }
+    } catch (e) { if (e && (e.code === 'declined' || e.code === 'rate_limited')) return 'cancelado'; }
+    try {
+      const blob = contenido instanceof Blob ? contenido : new Blob([contenido]);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+      return 'ok';
+    } catch (e) { return 'error'; }
+  }
+  function excel(t) {
+    if (!window.XLSX) throw new Error('No se pudo cargar el generador de Excel.');
+    const wb = XLSX.utils.book_new();
+    [['Resumen semanal', t.resumen], ['Plantas', t.plantas], ['Hojas', t.hojas], ['Aplicaciones', t.apps], ['Clima', t.clima]].forEach(([n, f]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(f), n));
+    return new Uint8Array(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }));
+  }
+  return { csv, tablasPlano, descargar, excel };
+})();
+
+/* =====================================================================
+   CAPA 5 — INTERFAZ (React + htm)
+   ===================================================================== */
+const { useState, useEffect, useMemo, useRef, useCallback, useSyncExternalStore } = React;
+const html = htm.bind(React.createElement);
+
+const useStore = () => useSyncExternalStore(Store.suscribir, Store.get);
+function usePref(clave, inicial) {
+  const [v, setV] = useState(() => { try { const s = localStorage.getItem('sigatoka.' + clave); return s != null ? JSON.parse(s) : inicial; } catch (e) { return inicial; } });
+  const set = useCallback(nv => setV(prev => { const val = typeof nv === 'function' ? nv(prev) : nv; try { localStorage.setItem('sigatoka.' + clave, JSON.stringify(val)); } catch (e) { } return val; }), [clave]);
+  return [v, set];
+}
+function useAncho() {
+  const ref = useRef(null); const [w, setW] = useState(600);
+  useEffect(() => {
+    if (!ref.current) return;
+    const ro = new ResizeObserver(e => setW(Math.round(e[0].contentRect.width)));
+    ro.observe(ref.current); return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
+const fmt = (n, d = 1) => n == null || isNaN(n) ? '—' : Number(n).toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fechaCorta = s => { if (!s) return '—'; const [y, m, d] = s.slice(0, 10).split('-').map(Number); return `${d} ${MESES[m - 1]} ${y}`; };
+const fechaSinAnio = s => { if (!s) return '—'; const [, m, d] = s.slice(0, 10).split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
+const etqSem = k => 'S' + Number(k.split('-W')[1]);
+const horaCorta = iso => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); };
+const COLOR_SEM = { verde: 'var(--verde)', amarillo: 'var(--amarillo)', rojo: 'var(--rojo)', sin: 'var(--sin)' };
+const TXT_SEM = { verde: 'Bajo', amarillo: 'Medio', rojo: 'Alto', sin: 'Sin datos' };
+const COLOR_SERIE = i => `var(--s${(i % 8) + 1})`;
+const ordenarTablas = l => l.slice().sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', 'es', { numeric: true }));
+
+let toastTimer;
+function avisar(msg) { const ev = new CustomEvent('toast', { detail: msg }); window.dispatchEvent(ev); }
+function Toast() {
+  const [m, setM] = useState(null);
+  useEffect(() => { const f = e => { setM(e.detail); clearTimeout(toastTimer); toastTimer = setTimeout(() => setM(null), 2600); }; window.addEventListener('toast', f); return () => window.removeEventListener('toast', f); }, []);
+  return m ? html`<div className="toast" role="status">${m}</div>` : null;
+}
+
+// Confirmación dentro de la app: los diálogos nativos (confirm) pueden estar bloqueados en el visor
+function confirmar(mensaje, opciones = {}) {
+  return new Promise(res => window.dispatchEvent(new CustomEvent('confirmar', { detail: { mensaje, ...opciones, res } })));
+}
+function Dialogo() {
+  const [d, setD] = useState(null);
+  useEffect(() => { const f = e => setD(e.detail); window.addEventListener('confirmar', f); return () => window.removeEventListener('confirmar', f); }, []);
+  if (!d) return null;
+  const cerrar = v => { setD(null); d.res(v); };
+  return html`<div className="velo" style=${{ zIndex: 90 }} onClick=${e => { if (e.target === e.currentTarget) cerrar(false); }}>
+    <div className="hoja-sheet" role="alertdialog" aria-modal="true" aria-label=${d.titulo || 'Confirmar'}>
+      ${d.titulo && html`<h2>${d.titulo}</h2>`}
+      <div style=${{ whiteSpace: 'pre-line', margin: '10px 0 18px' }}>${d.mensaje}</div>
+      <div className="fila-btn"><button className="btn" onClick=${() => cerrar(false)}>${d.cancelar || 'Cancelar'}</button>
+        <button className=${'btn ' + (d.peligro ? 'btn-xp' : 'btn-p')} autoFocus onClick=${() => cerrar(true)}>${d.aceptar || 'Aceptar'}</button></div>
+    </div></div>`;
+}
+
+const Icono = {
+  campo: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 22V9"/><path d="M12 13C7 13 4 10 4 5c5 0 8 3 8 8z"/><path d="M12 10c0-4 3-7 8-7 0 5-3 8-8 8"/></svg>`,
+  app: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>`,
+  tablero: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,
+  admin: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
+  atras: html`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>`
+};
+
+/* ---------- Conexión y sincronización ---------- */
+function Conexion() {
+  const st = useStore();
+  const [abierto, setAbierto] = useState(false);
+  const s = st.sync;
+  const npend = Object.keys(st.pendientes).length;
+  const enLinea = s.online && !s.simularOffline;
+  const local = s.modo !== 'servidor';
+  const color = !enLinea ? 'var(--rojo)' : local ? 'var(--sin)' : npend ? 'var(--amarillo)' : 'var(--verde)';
+  const texto = !enLinea ? 'Sin señal' : local ? 'Solo local' : s.enviando ? 'Enviando…' : npend ? `${npend} por enviar` : 'Al día';
+  return html`<div style=${{ position: 'relative' }}>
+    <button className="pill" onClick=${() => setAbierto(!abierto)} aria-expanded=${abierto}>
+      <span className="punto" style=${{ background: color }}></span>${texto}${!enLinea && npend && !local ? ` (${npend})` : ''}
+    </button>
+    ${abierto && html`<div className="pop">
+      <h3>Conexión y sincronización</h3>
+      <p className="peq">${s.modo === 'servidor' ? 'Los datos se guardan en este dispositivo y se envían al almacén compartido del rancho.' : 'Este entorno no tiene almacén compartido: los datos se guardan solo en este dispositivo.'}</p>
+      <p className="peq"><b>Registros pendientes:</b> ${npend}<br/><b>Último envío:</b> ${s.ultimo ? new Date(s.ultimo).toLocaleString('es-MX') : '—'}<br/><b>Almacén local:</b> ${Almacen.modo === 'indexeddb' ? 'IndexedDB' : 'memoria (se pierde al cerrar)'}</p>
+      ${s.error && html`<div className="error peq">Error de sincronización: ${s.error}</div>`}
+      <label className="interruptor"><input type="checkbox" checked=${s.simularOffline} onChange=${e => Sync.simularSinSenal(e.target.checked)} />Simular sin señal</label>
+      <div className="fila-btn" style=${{ marginTop: 8 }}>
+        <button className="btn btn-s" disabled=${!enLinea || s.modo !== 'servidor'} onClick=${() => { Sync.ahora(); setAbierto(false); }}>Sincronizar ahora</button>
+        <button className="btn btn-s btn-q" onClick=${() => setAbierto(false)}>Cerrar</button>
+      </div>
+    </div>`}
+  </div>`;
+}
+
+/* ---------- Bienvenida / configuración inicial ---------- */
+function Bienvenida() {
+  const [demo, setDemo] = useState(true);
+  const [msg, setMsg] = useState(null);
+  const [ocupado, setOcupado] = useState(false);
+  const inp = useRef(null);
+  async function crear(poligonos, origen) {
+    setOcupado(true);
+    const st = Store.get();
+    const cfg = st.datos.config.umbrales || Modelo.configInicial();
+    const tablas = poligonos.map(p => Modelo.nuevaTabla({ codigo: p.nombre.slice(0, 40), nombre: p.nombre, superficie_ha: Math.round(Geo.areaHa(p.anillo) * 100) / 100,
+      variedad: p.variedad || '', geometria: { type: 'Polygon', coordinates: [p.anillo] }, origen }));
+    const c = Geo.centroide(poligonos.flatMap(p => p.anillo));
+    cfg.rancho_lon = +c[0].toFixed(5); cfg.rancho_lat = +c[1].toFixed(5);
+    let usuarios = vivos(st.datos.usuarios);
+    if (!usuarios.length) usuarios = [Modelo.nuevoUsuario({ nombre: 'Propietario', rol: 'administrador' }), Modelo.nuevoUsuario({ nombre: 'Operador 1', rol: 'operador' }), Modelo.nuevoUsuario({ nombre: 'Operador 2', rol: 'operador' })];
+    Store.put('config', cfg);
+    Store.putMuchos('usuarios', usuarios);
+    Store.putMuchos('tablas', tablas);
+    if (demo) {
+      const g = Demo.generar(Store.get().datos, cfg);
+      Store.putMuchos('clima', g.clima); Store.putMuchos('recorridos', g.recorridos); Store.putMuchos('evaluaciones', g.evaluaciones); Store.putMuchos('aplicaciones', g.aplicaciones);
+    }
+    setOcupado(false);
+  }
+  async function importar(e) {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try { const p = await Geo.leer(f); await crear(p, 'kmz'); }
+    catch (err) { setMsg(err.message); }
+  }
+  return html`<div className="bienvenida">
+    <div className="marca"><span className="marca-hoja"></span>Monitoreo de Sigatoka negra</div>
+    <h1>Configura el rancho</h1>
+    <p>Primero carga las tablas (lotes) con sus polígonos. Después podrás crear recorridos y capturar plantas con el método de Stover modificado.</p>
+    ${msg && html`<div className="error">${msg}</div>`}
+    <div className="caja" style=${{ margin: '18px 0' }}>
+      <h2>Tablas del rancho</h2>
+      <p className="peq muted">Sube el archivo .kmz o .kml exportado de Google Earth. Cada polígono se convierte en una tabla con su superficie calculada.</p>
+      <input ref=${inp} type="file" accept=".kmz,.kml" hidden onChange=${importar} />
+      <div className="fila-btn" style=${{ marginTop: 10 }}>
+        <button className="btn btn-p" disabled=${ocupado} onClick=${() => inp.current.click()}>Importar KMZ o KML</button>
+        <button className="btn" disabled=${ocupado} onClick=${() => crear(Geo.catalogoEjemplo(), 'ejemplo')}>Usar 12 tablas de ejemplo</button>
+      </div>
+    </div>
+    <label className="interruptor"><input type="checkbox" checked=${demo} onChange=${e => setDemo(e.target.checked)} />Agregar 16 semanas de datos de demostración (recorridos, aplicaciones y clima simulado)</label>
+    <p className="peq muted">Se crean tres usuarios de prueba: Propietario (administrador), Operador 1 y Operador 2. Puedes renombrarlos en Administración.</p>
+  </div>`;
+}
+
+/* ---------- Componentes de captura ---------- */
+function Stepper({ valor, min = 0, max = 99, onCambio, etiqueta }) {
+  return html`<div className="stepper" role="group" aria-label=${etiqueta}>
+    <button aria-label=${'Restar ' + etiqueta} onClick=${() => onCambio(Math.max(min, (valor || 0) - 1))} disabled=${valor <= min}>−</button>
+    <output className="num">${valor == null ? '—' : valor}</output>
+    <button aria-label=${'Sumar ' + etiqueta} onClick=${() => onCambio(Math.min(max, (valor || 0) + 1))} disabled=${valor >= max}>+</button>
+  </div>`;
+}
+function SelectorHoja({ titulo, valor, th, onCambio }) {
+  const n = Math.max(th, valor || 0);
+  return html`<div className="sintoma">
+    <div className="cab"><span className="tit" style=${{ fontWeight: 700 }}>${titulo}</span>
+      <span className="peq ${valor == null ? '' : 'muted'}" style=${{ color: valor == null ? 'var(--aviso)' : undefined, fontWeight: 700 }}>
+        ${valor == null ? 'Sin capturar' : valor === 0 ? 'No presenta' : 'Hoja ' + valor}</span></div>
+    <div className="chips">
+      <button className=${'chip np' + (valor === 0 ? ' activo' : '')} onClick=${() => onCambio(0)}>No presenta</button>
+      ${Array.from({ length: n }, (_, i) => i + 1).map(h => html`<button key=${h} className=${'chip num' + (valor === h ? ' activo' : '')}
+        style=${h > th ? { borderColor: 'var(--error)', color: 'var(--error)' } : null} onClick=${() => onCambio(h)}>${h}</button>`)}
+    </div>
+  </div>`;
+}
+function TiraHojas({ planta, onClic }) {
+  return html`<div className="tira">${planta.hojas.map((h, i) => html`<span key=${h.id} onClick=${onClic ? () => onClic(i) : null}
+    className=${'cuad ' + (h.grado_gauhl == null ? 'vacio' : 'gc' + h.grado_gauhl)} title=${'Hoja ' + h.numero_hoja}>${h.grado_gauhl == null ? h.numero_hoja : h.grado_gauhl}</span>`)}</div>`;
+}
+
+function ModalHojas({ planta, tabla, onGrado, onCerrar }) {
+  const primeraVacia = planta.hojas.findIndex(h => h.grado_gauhl == null);
+  const [i, setI] = useState(primeraVacia >= 0 ? primeraVacia : 0);
+  const [fin, setFin] = useState(false);
+  const lista = useRef(null);
+  const total = planta.hojas.length;
+  const hoja = planta.hojas[i];
+  useEffect(() => { const el = lista.current && lista.current.querySelector('.actual'); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [i]);
+  function elegir(g) {
+    onGrado(i, g);
+    const sig = planta.hojas.findIndex((h, j) => j > i && h.grado_gauhl == null);
+    if (i < total - 1) setI(sig > i ? sig : i + 1);
+    else setFin(true);
+  }
+  useEffect(() => {
+    const k = e => { if (/^[0-6]$/.test(e.key)) elegir(Number(e.key)); else if (e.key === 'ArrowUp') setI(Math.max(0, i - 1)); else if (e.key === 'ArrowDown') setI(Math.min(total - 1, i + 1)); else if (e.key === 'Escape') onCerrar(); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  });
+  const hfV = Calc.hf(planta), iiV = Calc.iiPlanta(planta), faltan = planta.hojas.filter(h => h.grado_gauhl == null).length;
+  return html`<div className="modal" role="dialog" aria-modal="true" aria-label="Calificar hojas">
+    <div className="modal-cab">
+      <button className="volver" onClick=${onCerrar}>${Icono.atras}Planta ${planta.numero_planta}</button>
+      <div style=${{ marginLeft: 'auto', textAlign: 'right' }}>
+        <div style=${{ fontWeight: 700, fontSize: '1.15rem' }}>Hoja ${hoja ? hoja.numero_hoja : '—'} de ${total}</div>
+        <div className="peq muted">${tabla ? tabla.codigo : ''}: HF ${hfV}, II ${fmt(iiV)}${faltan ? `, faltan ${faltan}` : ''}</div>
+      </div>
+    </div>
+    <div className="modal-cuerpo" ref=${lista}>
+      <p className="peq muted" style=${{ textAlign: 'center', margin: '0 0 8px' }}>Hoja 1 = la más joven completamente abierta (sin contar el cigarro)</p>
+      <div className="planta">
+        ${planta.hojas.map((h, j) => html`<button key=${h.id} className=${'hoja-f ' + (j % 2 ? 'der' : 'izq') + (j === i && !fin ? ' actual' : '')}
+          onClick=${() => { setI(j); setFin(false); }} aria-label=${`Hoja ${h.numero_hoja}, ${h.grado_gauhl == null ? 'sin calificar' : 'grado ' + h.grado_gauhl}`}>
+          <span className=${'lam ' + (h.grado_gauhl == null ? 'vacia' : 'gc' + h.grado_gauhl)}></span>
+          <span className="n num">${h.numero_hoja}${h.grado_gauhl != null ? '·' + h.grado_gauhl : ''}</span>
+        </button>`)}
+      </div>
+    </div>
+    <div className="modal-pie">
+      ${fin ? html`<div style=${{ textAlign: 'center' }}>
+          <p style=${{ fontSize: '1.1rem', fontWeight: 700 }}>${faltan ? `Faltan ${faltan} hoja(s) por calificar` : 'Todas las hojas calificadas'}</p>
+          <p className="muted">Hojas funcionales: <b>${hfV}</b> · Índice de infección: <b>${fmt(iiV)} %</b></p>
+          <div className="fila-btn"><button className="btn" onClick=${() => { setFin(false); setI(total - 1); }}>Revisar hojas</button>
+          <button className="btn btn-p" onClick=${onCerrar}>Volver a la planta</button></div>
+        </div>`
+      : html`<div className="grados">
+          ${Calc.GRADOS.map(g => html`<button key=${g.g} className=${'grado gc' + g.g + (hoja && hoja.grado_gauhl === g.g ? ' sel' : '')} onClick=${() => elegir(g.g)} aria-label=${`Grado ${g.g}: ${g.rango}`}>
+            <b>${g.g}</b><small>${g.rango}</small></button>`)}
+          <button className="grado" style=${{ background: 'var(--bg)', color: 'var(--ink)', borderColor: 'var(--ink)' }} disabled=${i === 0} onClick=${() => setI(i - 1)}><b style=${{ fontSize: '1.3rem' }}>↑</b><small>Hoja anterior</small></button>
+          <div className="sep-func"><span>0–4 funcionales</span><span>5–6 no funcionales</span></div>
+        </div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- Pantallas de campo ---------- */
+function puedeEditarRecorrido(rec, usuario) {
+  if (!rec || !usuario) return false;
+  if (usuario.rol === 'administrador') return true;
+  return rec.usuario_id === usuario.id && rec.estado === 'en_curso';
+}
+function EtqEstado({ estado, pendiente }) {
+  if (estado === 'en_curso') return html`<span className="etq e-curso">En curso</span>`;
+  if (estado === 'cerrado' || pendiente) return html`<span className="etq e-cerrado">Cerrado, por enviar</span>`;
+  return html`<span className="etq e-sinc">Sincronizado</span>`;
+}
+
+function ListaRecorridos({ usuario, ir }) {
+  const st = useStore();
+  const esAdmin = usuario.rol === 'administrador';
+  const [verTodos, setVerTodos] = useState(false);
+  let recs = vivos(st.datos.recorridos).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.created_at.localeCompare(a.created_at));
+  if (!esAdmin) recs = recs.filter(r => r.usuario_id === usuario.id && r.estado === 'en_curso');
+  const abiertos = recs.filter(r => r.estado === 'en_curso');
+  const cerrados = recs.filter(r => r.estado !== 'en_curso');
+  const evs = vivos(st.datos.evaluaciones);
+  const tarjeta = r => {
+    const e = evs.filter(x => x.recorrido_id === r.id);
+    const np = e.reduce((s, x) => s + x.plantas.length, 0);
+    const u = st.datos.usuarios[r.usuario_id];
+    return html`<li key=${r.id}><button className="item" onClick=${() => ir({ vista: 'recorrido', recorridoId: r.id })}>
+      <div><div style=${{ fontWeight: 700 }}>${fechaCorta(r.fecha)} <span className="muted">(${etqSem(r.semana_iso)})</span></div>
+      <div className="peq muted">${u ? u.nombre : 'Usuario'}: ${e.length} tabla${e.length !== 1 ? 's' : ''}, ${np} plantas</div></div>
+      <div className="der"><${EtqEstado} estado=${r.estado} pendiente=${st.pendientes['recorridos/' + r.id]} /></div>
+    </button></li>`;
+  };
+  return html`<div>
+    <h1>Recorridos</h1>
+    <p className="muted">${esAdmin ? 'Como administrador ves y corriges los recorridos de todos.' : 'Tus recorridos abiertos.'}</p>
+    <button className="btn btn-p btn-b" style=${{ margin: '14px 0' }} onClick=${() => ir({ vista: 'nuevo' })}>Nuevo recorrido</button>
+    ${abiertos.length ? html`<ul className="lista">${abiertos.map(tarjeta)}</ul>`
+      : html`<div className="caja vacio-panel">${esAdmin ? 'No hay recorridos abiertos.' : 'No tienes recorridos abiertos. Crea uno para empezar a capturar.'}</div>`}
+    ${esAdmin && cerrados.length > 0 && html`<div className="seccion">
+      <h2 style=${{ margin: '18px 0 10px' }}>Cerrados</h2>
+      <ul className="lista">${(verTodos ? cerrados : cerrados.slice(0, 6)).map(tarjeta)}</ul>
+      ${cerrados.length > 6 && html`<button className="enlace" onClick=${() => setVerTodos(!verTodos)}>${verTodos ? 'Ver menos' : `Ver los ${cerrados.length} recorridos cerrados`}</button>`}
+    </div>`}
+  </div>`;
+}
+
+function SelectorTablas({ tablas, sel, onCambio, deshabilitadas = [] }) {
+  return html`<div className="chips">${ordenarTablas(tablas).map(t => {
+    const on = sel.includes(t.id), off = deshabilitadas.includes(t.id);
+    return html`<button key=${t.id} disabled=${off} className=${'chip chip-tabla' + (on ? ' activo' : '')} aria-pressed=${on}
+      onClick=${() => onCambio(on ? sel.filter(x => x !== t.id) : [...sel, t.id])}>${t.codigo}</button>`;
+  })}</div>`;
+}
+
+function NuevoRecorrido({ usuario, ir }) {
+  const st = useStore();
+  const [fecha, setFecha] = useState(Modelo.hoy());
+  const [sel, setSel] = useState([]);
+  const tablas = vivos(st.datos.tablas).filter(t => t.activa);
+  function iniciar() {
+    const rec = Store.put('recorridos', Modelo.nuevoRecorrido({ fecha, usuario_id: usuario.id }));
+    Store.putMuchos('evaluaciones', ordenarTablas(tablas.filter(t => sel.includes(t.id))).map(t => Modelo.nuevaEvaluacion({ recorrido_id: rec.id, tabla_id: t.id })));
+    ir({ vista: 'recorrido', recorridoId: rec.id }, true);
+  }
+  return html`<div>
+    <div className="migas"><button className="volver" onClick=${() => ir({ vista: 'lista' })}>${Icono.atras}Recorridos</button></div>
+    <h1>Nuevo recorrido</h1>
+    <label className="campo"><span>Fecha</span><input className="inp" type="date" value=${fecha} max=${Modelo.hoy()} onChange=${e => setFecha(e.target.value || Modelo.hoy())} /></label>
+    <p className="peq muted">Semana ${etqSem(Modelo.semanaISO(fecha))}, operador: ${usuario.nombre}</p>
+    <h2 style=${{ margin: '18px 0 6px' }}>Tablas a evaluar</h2>
+    <p className="peq muted">Elige una o varias. Puedes agregar más durante el recorrido.</p>
+    <${SelectorTablas} tablas=${tablas} sel=${sel} onCambio=${setSel} />
+    <div className="fila-btn" style=${{ marginTop: 10 }}><button className="enlace" onClick=${() => setSel(sel.length === tablas.length ? [] : tablas.map(t => t.id))}>${sel.length === tablas.length ? 'Quitar todas' : 'Seleccionar todas'}</button></div>
+    <button className="btn btn-p btn-b" style=${{ marginTop: 18 }} disabled=${!sel.length} onClick=${iniciar}>Iniciar recorrido${sel.length ? ` (${sel.length} tabla${sel.length > 1 ? 's' : ''})` : ''}</button>
+  </div>`;
+}
+
+function VistaRecorrido({ usuario, nav, ir }) {
+  const st = useStore();
+  const rec = st.datos.recorridos[nav.recorridoId];
+  const [agregar, setAgregar] = useState(false);
+  const [selNuevas, setSelNuevas] = useState([]);
+  if (!rec || rec.eliminado) return html`<div><p>El recorrido ya no existe.</p><button className="btn" onClick=${() => ir({ vista: 'lista' })}>Volver</button></div>`;
+  const editable = puedeEditarRecorrido(rec, usuario);
+  const evs = ordenarTablas(vivos(st.datos.evaluaciones).filter(e => e.recorrido_id === rec.id).map(e => ({ ...e, codigo: (st.datos.tablas[e.tabla_id] || {}).codigo || '?' })));
+  const u = st.datos.usuarios[rec.usuario_id];
+  const tablasAct = vivos(st.datos.tablas).filter(t => t.activa);
+  const total = Calc.resumen(evs.flatMap(e => e.plantas));
+  async function cerrar() {
+    const vacias = evs.filter(e => !e.plantas.length).length;
+    const incompletas = evs.flatMap(e => e.plantas).filter(p => !Calc.completa(p)).length;
+    let msg = 'Ya no podrás editarlo desde el celular del operador.';
+    if (vacias) msg += `\n\n${vacias} tabla(s) sin plantas capturadas.`;
+    if (incompletas) msg += `\n${incompletas} planta(s) con hojas sin calificar.`;
+    if (!(await confirmar(msg, { titulo: '¿Cerrar el recorrido?', aceptar: 'Cerrar recorrido' }))) return;
+    evs.forEach(e => { if (e.plantas.length && !e.hora_fin) Store.put('evaluaciones', { ...st.datos.evaluaciones[e.id], hora_fin: Modelo.ahora() }); });
+    Store.put('recorridos', { ...rec, estado: 'cerrado' });
+    avisar('Recorrido cerrado');
+    ir({ vista: 'lista' });
+  }
+  function agregarTablas() {
+    Store.putMuchos('evaluaciones', selNuevas.map(id => Modelo.nuevaEvaluacion({ recorrido_id: rec.id, tabla_id: id })));
+    setSelNuevas([]); setAgregar(false);
+  }
+  return html`<div>
+    <div className="migas"><button className="volver" onClick=${() => ir({ vista: 'lista' })}>${Icono.atras}Recorridos</button></div>
+    <div style=${{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <div style=${{ flex: 1 }}><h1>Recorrido del ${fechaSinAnio(rec.fecha)}</h1>
+      <p className="muted">Semana ${etqSem(rec.semana_iso)}, ${u ? u.nombre : ''}</p></div>
+      <${EtqEstado} estado=${rec.estado} pendiente=${st.pendientes['recorridos/' + rec.id]} />
+    </div>
+    <div className="kpis" style=${{ margin: '12px 0' }}>
+      <div className="kpi"><b className="num">${total.n}</b><span>plantas</span></div>
+      <div className="kpi"><b className="num">${fmt(total.ii)}</b><span>II del recorrido (%)</span></div>
+      <div className="kpi"><b className="num">${fmt(total.hf)}</b><span>HF promedio</span></div>
+    </div>
+    <ul className="lista">${evs.map(e => {
+      const r = Calc.resumen(e.plantas);
+      const estado = e.hora_fin ? 'Terminada' : e.plantas.length ? 'En captura' : 'Sin iniciar';
+      return html`<li key=${e.id}><button className="item" onClick=${() => ir({ vista: 'tabla', recorridoId: rec.id, evaluacionId: e.id })}>
+        <div><div style=${{ fontWeight: 700, fontSize: '1.15rem' }}>${e.codigo}</div><div className="peq muted">${estado}${e.plantas.length ? `: ${r.n} plantas, II ${fmt(r.ii)}` : ''}</div></div>
+        <div className="der num" style=${{ fontSize: '1.4rem', fontWeight: 700 }}>${e.plantas.length}<div className="peq muted" style=${{ fontWeight: 400 }}>plantas</div></div>
+      </button></li>`;
+    })}</ul>
+    ${editable && html`<div className="seccion">
+      ${agregar ? html`<div className="caja">
+          <h3>Agregar tablas</h3>
+          <div style=${{ margin: '10px 0' }}><${SelectorTablas} tablas=${tablasAct} sel=${selNuevas} onCambio=${setSelNuevas} deshabilitadas=${evs.map(e => e.tabla_id)} /></div>
+          <div className="fila-btn"><button className="btn" onClick=${() => setAgregar(false)}>Cancelar</button><button className="btn btn-p" disabled=${!selNuevas.length} onClick=${agregarTablas}>Agregar</button></div>
+        </div>`
+      : html`<div className="fila-btn">
+          <button className="btn" onClick=${() => setAgregar(true)}>Agregar tabla</button>
+          ${rec.estado === 'en_curso' && html`<button className="btn btn-p" onClick=${cerrar}>Cerrar recorrido</button>`}
+        </div>`}
+      ${usuario.rol === 'administrador' && html`<div className="fila-btn" style=${{ marginTop: 10 }}>
+        ${rec.estado !== 'en_curso' && html`<button className="btn btn-q" onClick=${() => { Store.put('recorridos', { ...rec, estado: 'en_curso' }); avisar('Recorrido reabierto'); }}>Reabrir recorrido</button>`}
+        <button className="btn btn-x" onClick=${async () => { if (await confirmar('Se eliminan también todas sus evaluaciones y plantas.', { titulo: '¿Eliminar este recorrido?', aceptar: 'Eliminar', peligro: true })) { evs.forEach(e => Store.eliminar('evaluaciones', e.id)); Store.eliminar('recorridos', rec.id); ir({ vista: 'lista' }); } }}>Eliminar recorrido</button>
+      </div>`}
+    </div>`}
+    ${!editable && html`<div className="info">Este recorrido está cerrado. Solo el administrador puede corregirlo.</div>`}
+  </div>`;
+}
+
+function VistaTabla({ usuario, nav, ir }) {
+  const st = useStore();
+  const ev = st.datos.evaluaciones[nav.evaluacionId];
+  const rec = ev && st.datos.recorridos[ev.recorrido_id];
+  if (!ev || ev.eliminado || !rec) return html`<div><p>La evaluación ya no existe.</p><button className="btn" onClick=${() => ir({ vista: 'lista' })}>Volver</button></div>`;
+  const tabla = st.datos.tablas[ev.tabla_id] || {};
+  const editable = puedeEditarRecorrido(rec, usuario);
+  const r = Calc.resumen(ev.plantas);
+  const plantas = ev.plantas.slice().sort((a, b) => a.numero_planta - b.numero_planta);
+  function nueva() {
+    const previa = plantas[plantas.length - 1];
+    const num = plantas.length ? Math.max(...plantas.map(p => p.numero_planta)) + 1 : 1;
+    const p = Modelo.nuevaPlanta(ev.id, num, previa);
+    Store.put('evaluaciones', { ...ev, hora_inicio: ev.hora_inicio || Modelo.ahora(), plantas: [...ev.plantas, p] });
+    ir({ ...nav, vista: 'planta', plantaId: p.id, abrirHojas: false });
+  }
+  return html`<div>
+    <div className="migas"><button className="volver" onClick=${() => ir({ vista: 'recorrido', recorridoId: rec.id })}>${Icono.atras}Recorrido del ${fechaSinAnio(rec.fecha)}</button></div>
+    <h1>Tabla ${tabla.codigo}</h1>
+    <p className="muted">${tabla.variedad || ''}${tabla.superficie_ha ? `, ${fmt(tabla.superficie_ha, 2)} ha` : ''}${ev.hora_inicio ? `, inicio ${horaCorta(ev.hora_inicio)}` : ''}${ev.hora_fin ? `, fin ${horaCorta(ev.hora_fin)}` : ''}</p>
+    <div className="kpis" style=${{ margin: '12px 0' }}>
+      <div className="kpi"><b className="num">${r.n}</b><span>plantas (lo normal: 18–20)</span></div>
+      <div className="kpi"><b className="num">${fmt(r.ii)}</b><span>II (%)</span></div>
+      <div className="kpi"><b className="num">${fmt(r.th)}</b><span>TH promedio</span></div>
+      <div className="kpi"><b className="num">${fmt(r.hf)}</b><span>HF promedio</span></div>
+    </div>
+    ${editable && html`<button className="btn btn-p btn-b" style=${{ margin: '6px 0 14px' }} onClick=${nueva}>Nueva planta (nº ${plantas.length ? Math.max(...plantas.map(p => p.numero_planta)) + 1 : 1})</button>`}
+    <ul className="lista">${plantas.slice().reverse().map(p => {
+      const ok = Calc.completa(p); const v = Calc.validar(p);
+      return html`<li key=${p.id}><button className="item" onClick=${() => ir({ ...nav, vista: 'planta', plantaId: p.id })}>
+        <div style=${{ fontSize: '1.4rem', fontWeight: 700, minWidth: 44 }} className="num">${p.numero_planta}</div>
+        <div style=${{ minWidth: 0 }}><div className="peq">TH ${p.total_hojas}, HF ${Calc.hf(p)}, II ${fmt(Calc.iiPlanta(p))}</div>
+          <div className="peq" style=${{ color: v.errores.length ? 'var(--error)' : ok ? 'var(--ink-2)' : 'var(--aviso)', fontWeight: 700 }}>${v.errores.length ? 'Revisar datos' : ok ? 'Completa' : 'Incompleta'}</div></div>
+        <div className="der" style=${{ maxWidth: '45%' }}><${TiraHojas} planta=${p} /></div>
+      </button></li>`;
+    })}</ul>
+    ${!plantas.length && html`<div className="caja vacio-panel">Aún no hay plantas. Elige una planta parida y captúrala.</div>`}
+    ${editable && plantas.length > 0 && html`<button className="btn btn-b" style=${{ marginTop: 16 }} onClick=${() => { Store.put('evaluaciones', { ...ev, hora_fin: Modelo.ahora() }); avisar(`Tabla ${tabla.codigo} terminada`); ir({ vista: 'recorrido', recorridoId: rec.id }); }}>Terminar tabla</button>`}
+  </div>`;
+}
+
+function VistaPlanta({ usuario, nav, ir }) {
+  const st = useStore();
+  const ev = st.datos.evaluaciones[nav.evaluacionId];
+  const rec = ev && st.datos.recorridos[ev.recorrido_id];
+  const p = ev && ev.plantas.find(x => x.id === nav.plantaId);
+  const [modal, setModal] = useState(!!nav.abrirHojas);
+  const [gpsMsg, setGpsMsg] = useState(null);
+  if (!ev || !p || !rec) return html`<div><p>La planta ya no existe.</p><button className="btn" onClick=${() => ir({ vista: 'lista' })}>Volver</button></div>`;
+  const tabla = st.datos.tablas[ev.tabla_id] || {};
+  const editable = puedeEditarRecorrido(rec, usuario);
+  const v = Calc.validar(p);
+  const ordenadas = ev.plantas.slice().sort((a, b) => a.numero_planta - b.numero_planta);
+  const pos = ordenadas.findIndex(x => x.id === p.id);
+  function actualizar(cambios) {
+    if (!editable) return;
+    const actual = Store.get().datos.evaluaciones[ev.id];
+    const plantas = actual.plantas.map(x => {
+      if (x.id !== p.id) return x;
+      const n = { ...x, ...cambios, updated_at: Modelo.ahora() };
+      if (cambios.total_hojas != null) n.hojas = Modelo.ajustarHojas(n, cambios.total_hojas);
+      return n;
+    });
+    Store.put('evaluaciones', { ...actual, plantas });
+  }
+  function setGrado(idx, g) {
+    const actual = Store.get().datos.evaluaciones[ev.id];
+    const x = actual.plantas.find(y => y.id === p.id);
+    const hojas = x.hojas.map((h, j) => j === idx ? { ...h, grado_gauhl: g } : h);
+    actualizar({ hojas });
+  }
+  async function siguiente() {
+    if (v.errores.length) { avisar('Corrige los datos marcados en rojo'); return; }
+    const faltan = p.hojas.filter(h => h.grado_gauhl == null).length;
+    if (faltan && !(await confirmar('¿Pasar a la siguiente planta de todos modos?', { titulo: `Faltan ${faltan} hoja(s) por calificar`, aceptar: 'Pasar a la siguiente', cancelar: 'Seguir calificando' }))) return;
+    if (pos < ordenadas.length - 1) { ir({ ...nav, plantaId: ordenadas[pos + 1].id, abrirHojas: false }); return; }
+    const actual = Store.get().datos.evaluaciones[ev.id];
+    const num = Math.max(...actual.plantas.map(x => x.numero_planta)) + 1;
+    const n = Modelo.nuevaPlanta(ev.id, num, p);
+    Store.put('evaluaciones', { ...actual, plantas: [...actual.plantas, n] });
+    ir({ ...nav, plantaId: n.id, abrirHojas: false });
+    window.scrollTo(0, 0);
+  }
+  async function borrar() {
+    if (!(await confirmar('Se borran sus datos y la calificación de sus hojas.', { titulo: `¿Eliminar la planta ${p.numero_planta}?`, aceptar: 'Eliminar', peligro: true }))) return;
+    const actual = Store.get().datos.evaluaciones[ev.id];
+    Store.put('evaluaciones', { ...actual, plantas: actual.plantas.filter(x => x.id !== p.id) });
+    ir({ ...nav, vista: 'tabla', plantaId: null });
+  }
+  function gps() {
+    if (!navigator.geolocation) { setGpsMsg('Este dispositivo no permite obtener la ubicación.'); return; }
+    setGpsMsg('Obteniendo ubicación…');
+    navigator.geolocation.getCurrentPosition(
+      pos => { actualizar({ gps: { lat: +pos.coords.latitude.toFixed(6), lon: +pos.coords.longitude.toFixed(6), precision_m: Math.round(pos.coords.accuracy) } }); setGpsMsg(null); },
+      () => setGpsMsg('No se pudo obtener la ubicación. Revisa el permiso de ubicación.'), { enableHighAccuracy: true, timeout: 15000 });
+  }
+  const faltan = p.hojas.filter(h => h.grado_gauhl == null).length;
+  return html`<div style=${{ paddingBottom: editable ? 80 : 0 }}>
+    <div className="migas"><button className="volver" onClick=${() => ir({ ...nav, vista: 'tabla', plantaId: null })}>${Icono.atras}Tabla ${tabla.codigo}</button>
+      <span className="muted peq" style=${{ marginLeft: 'auto' }}>Planta ${pos + 1} de ${ordenadas.length}</span></div>
+    ${!editable && html`<div className="info">Solo lectura: el recorrido está cerrado.</div>`}
+    <div className="paso"><div><div className="tit">Número de planta</div><div className="sub">Consecutivo en la tabla</div></div>
+      <${Stepper} etiqueta="número de planta" valor=${p.numero_planta} min=${1} max=${200} onCambio=${n => actualizar({ numero_planta: n })} /></div>
+    <div className="paso"><div><div className="tit">Total de hojas (TH)</div><div className="sub">Todas las hojas en pie, incluidas las muy dañadas</div></div>
+      <${Stepper} etiqueta="total de hojas" valor=${p.total_hojas} min=${1} max=${25} onCambio=${n => actualizar({ total_hojas: n })} /></div>
+    <${SelectorHoja} titulo="Hoja más joven con pizca" valor=${p.hmj_pizca} th=${p.total_hojas} onCambio=${n => actualizar({ hmj_pizca: n })} />
+    <${SelectorHoja} titulo="Hoja más joven con estría" valor=${p.hmj_estria} th=${p.total_hojas} onCambio=${n => actualizar({ hmj_estria: n })} />
+    <${SelectorHoja} titulo="Hoja más joven con mancha o quema" valor=${p.hmj_mancha} th=${p.total_hojas} onCambio=${n => actualizar({ hmj_mancha: n })} />
+    <div className="sintoma">
+      <div className="cab"><span style=${{ fontWeight: 700 }}>Severidad por hoja (Gauhl)</span><span className="peq muted">HF ${Calc.hf(p)}, II ${fmt(Calc.iiPlanta(p))}</span></div>
+      <${TiraHojas} planta=${p} onClic=${editable ? () => setModal(true) : null} />
+      ${editable && html`<button className=${'btn btn-b ' + (faltan ? 'btn-p' : '')} style=${{ marginTop: 10 }} onClick=${() => setModal(true)}>${faltan === p.hojas.length ? `Calificar las ${p.total_hojas} hojas` : faltan ? `Calificar hojas (faltan ${faltan})` : 'Revisar calificación de hojas'}</button>`}
+    </div>
+    ${v.errores.length > 0 && html`<div className="error"><ul>${v.errores.map((e, i) => html`<li key=${i}>${e}</li>`)}</ul></div>`}
+    ${v.avisos.length > 0 && html`<div className="aviso"><ul>${v.avisos.map((e, i) => html`<li key=${i}>${e}</li>`)}</ul></div>`}
+    <label className="campo"><span>Observaciones</span>
+      <textarea className="inp" disabled=${!editable} value=${p.observaciones} placeholder="Opcional" onChange=${e => actualizar({ observaciones: e.target.value })}></textarea></label>
+    <div style=${{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      ${editable && html`<button className="btn btn-s btn-q" onClick=${gps}>${p.gps ? 'Actualizar ubicación' : 'Agregar ubicación GPS'}</button>`}
+      <span className="peq muted">${gpsMsg || (p.gps ? `${p.gps.lat}, ${p.gps.lon} (±${p.gps.precision_m} m)` : 'Ubicación opcional')}</span>
+    </div>
+    ${editable && html`<button className="enlace" style=${{ color: 'var(--error)', marginTop: 12 }} onClick=${borrar}>Eliminar esta planta</button>`}
+    ${editable && html`<div className="pie-fijo"><div>
+      <button className="btn" style=${{ flex: '0 0 auto' }} disabled=${pos <= 0} onClick=${() => ir({ ...nav, plantaId: ordenadas[pos - 1].id })} aria-label="Planta anterior">${Icono.atras}</button>
+      <button className="btn btn-p" style=${{ flex: 1 }} onClick=${siguiente}>${pos < ordenadas.length - 1 ? 'Siguiente planta' : 'Guardar y nueva planta'}</button>
+    </div></div>`}
+    ${modal && html`<${ModalHojas} planta=${p} tabla=${tabla} onGrado=${setGrado} onCerrar=${() => setModal(false)} />`}
+  </div>`;
+}
+
+function Campo({ usuario }) {
+  const [nav, setNav] = usePref('nav', { vista: 'lista' });
+  const ir = useCallback((n) => { setNav(n); window.scrollTo(0, 0); }, [setNav]);
+  const st = useStore();
+  let n = nav || { vista: 'lista' };
+  if (n.recorridoId) { const r = st.datos.recorridos[n.recorridoId]; if (!r || (usuario.rol !== 'administrador' && r.usuario_id !== usuario.id)) n = { vista: 'lista' }; }
+  if (n.vista === 'nuevo') return html`<${NuevoRecorrido} usuario=${usuario} ir=${ir} />`;
+  if (n.vista === 'recorrido') return html`<${VistaRecorrido} usuario=${usuario} nav=${n} ir=${ir} />`;
+  if (n.vista === 'tabla') return html`<${VistaTabla} usuario=${usuario} nav=${n} ir=${ir} />`;
+  if (n.vista === 'planta') return html`<${VistaPlanta} key=${n.plantaId} usuario=${usuario} nav=${n} ir=${ir} />`;
+  return html`<${ListaRecorridos} usuario=${usuario} ir=${ir} />`;
+}
+
+/* ---------- Aplicaciones ---------- */
+const FRAC = [['M03', 'Ditiocarbamatos (mancozeb)'], ['M05', 'Cloronitrilos (clorotalonil)'], ['1', 'Bencimidazoles'], ['3', 'Triazoles / DMI'], ['5', 'Aminas / morfolinas'],
+  ['7', 'SDHI'], ['9', 'Anilinopirimidinas'], ['11', 'Estrobilurinas / QoI'], ['BM02', 'Biológico'], ['Aceite', 'Aceite agrícola']];
+const METODOS = ['Aérea', 'Terrestre', 'Motobomba', 'Aspersora de mochila', 'Dron', 'Otro'];
+const UNIDADES = ['L/ha', 'mL/ha', 'kg/ha', 'g/ha', 'L/200 L', 'mL/L'];
+
+function FormAplicacion({ inicial, usuario, onCerrar }) {
+  const st = useStore();
+  const [a, setA] = useState(() => inicial || Modelo.nuevaAplicacion({ usuario_id: usuario.id, responsable: usuario.nombre }));
+  const tablas = vivos(st.datos.tablas).filter(t => t.activa || a.tabla_ids.includes(t.id));
+  const set = (k, v) => setA(x => ({ ...x, [k]: v }));
+  const repetidas = a.grupo_frac ? a.tabla_ids.map(id => {
+    const prev = Analisis.aplicacionesDeTabla(st.datos, id).filter(x => x.id !== a.id && x.fecha <= a.fecha).pop();
+    return prev && prev.grupo_frac === a.grupo_frac ? { t: st.datos.tablas[id], prev } : null;
+  }).filter(Boolean) : [];
+  const valido = a.fecha && a.tabla_ids.length && a.producto.trim();
+  function guardar() { Store.put('aplicaciones', { ...a, dosis: a.dosis === '' ? null : a.dosis, volumen_mezcla: a.volumen_mezcla === '' ? null : a.volumen_mezcla }); avisar(inicial ? 'Aplicación actualizada' : 'Aplicación registrada'); onCerrar(); }
+  return html`<div className="velo" onClick=${e => { if (e.target === e.currentTarget) onCerrar(); }}>
+    <div className="hoja-sheet" role="dialog" aria-modal="true" aria-label="Aplicación de fungicida">
+      <h2>${inicial ? 'Editar aplicación' : 'Registrar aplicación'}</h2>
+      <label className="campo"><span>Fecha</span><input className="inp" type="date" value=${a.fecha} onChange=${e => set('fecha', e.target.value)} /></label>
+      <div className="campo"><span style=${{ fontWeight: 700, display: 'block', marginBottom: 6 }}>Tablas aplicadas</span>
+        <${SelectorTablas} tablas=${tablas} sel=${a.tabla_ids} onCambio=${v => set('tabla_ids', v)} />
+        <button className="enlace" onClick=${() => set('tabla_ids', a.tabla_ids.length === tablas.length ? [] : tablas.map(t => t.id))}>${a.tabla_ids.length === tablas.length ? 'Quitar todas' : 'Todas las tablas'}</button></div>
+      <label className="campo"><span>Producto comercial</span><input className="inp" list="lista-prod" value=${a.producto} onChange=${e => {
+        const v = e.target.value; const pr = Demo.PRODUCTOS.find(x => x.producto === v);
+        setA(x => pr ? { ...x, producto: v, ingrediente_activo: x.ingrediente_activo || pr.ia, grupo_frac: x.grupo_frac || pr.frac, unidad: pr.unidad } : { ...x, producto: v });
+      }} /></label>
+      <datalist id="lista-prod">${[...new Set([...Demo.PRODUCTOS.map(p => p.producto), ...vivos(st.datos.aplicaciones).map(x => x.producto)])].map(p => html`<option key=${p} value=${p} />`)}</datalist>
+      <div className="rejilla2">
+        <label className="campo"><span>Ingrediente activo</span><input className="inp" value=${a.ingrediente_activo} onChange=${e => set('ingrediente_activo', e.target.value)} /></label>
+        <label className="campo"><span>Grupo FRAC / modo de acción</span><input className="inp" list="lista-frac" value=${a.grupo_frac} onChange=${e => set('grupo_frac', e.target.value.trim())} /></label>
+      </div>
+      <datalist id="lista-frac">${FRAC.map(([c, n]) => html`<option key=${c} value=${c}>${n}</option>`)}</datalist>
+      ${repetidas.length > 0 && html`<div className="aviso">Mismo grupo FRAC (${a.grupo_frac}) que la aplicación anterior en: ${repetidas.map(r => `${r.t ? r.t.codigo : '?'} (${fechaSinAnio(r.prev.fecha)})`).join(', ')}. Considera rotar el modo de acción.</div>`}
+      <div className="rejilla2">
+        <label className="campo"><span>Dosis</span><input className="inp" type="number" inputmode="decimal" step="any" value=${a.dosis ?? ''} onChange=${e => set('dosis', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+        <label className="campo"><span>Unidad</span><select className="inp" value=${a.unidad} onChange=${e => set('unidad', e.target.value)}>${UNIDADES.map(u => html`<option key=${u}>${u}</option>`)}</select></label>
+        <label className="campo"><span>Volumen de mezcla (L/ha)</span><input className="inp" type="number" inputmode="decimal" step="any" value=${a.volumen_mezcla ?? ''} onChange=${e => set('volumen_mezcla', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+        <label className="campo"><span>Método</span><select className="inp" value=${a.metodo} onChange=${e => set('metodo', e.target.value)}>${METODOS.map(u => html`<option key=${u}>${u}</option>`)}</select></label>
+      </div>
+      <label className="campo"><span>Responsable</span><input className="inp" value=${a.responsable} onChange=${e => set('responsable', e.target.value)} /></label>
+      <label className="campo"><span>Observaciones</span><textarea className="inp" value=${a.observaciones} onChange=${e => set('observaciones', e.target.value)}></textarea></label>
+      <div className="fila-btn"><button className="btn" onClick=${onCerrar}>Cancelar</button><button className="btn btn-p" disabled=${!valido} onClick=${guardar}>${inicial ? 'Guardar cambios' : 'Registrar aplicación'}</button></div>
+    </div>
+  </div>`;
+}
+
+function Aplicaciones({ usuario }) {
+  const st = useStore();
+  const [form, setForm] = useState(null);
+  const esAdmin = usuario.rol === 'administrador';
+  const apps = vivos(st.datos.aplicaciones).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const reps = Analisis.repeticionesFrac(st.datos);
+  const tablas = ordenarTablas(vivos(st.datos.tablas).filter(t => t.activa));
+  const hoy = Modelo.hoy();
+  return html`<div>
+    <h1>Aplicaciones de fungicida</h1>
+    <button className="btn btn-p btn-b" style=${{ margin: '14px 0' }} onClick=${() => setForm({ nuevo: true })}>Registrar aplicación</button>
+    <h2 style=${{ margin: '10px 0' }}>Días desde la última aplicación</h2>
+    <div className="chips" style=${{ marginBottom: 16 }}>${tablas.map(t => {
+      const u = Analisis.ultimaAplicacion(st.datos, t.id); const d = u ? Modelo.diasEntre(u.fecha, hoy) : null;
+      const cfg = st.datos.config.umbrales || Modelo.configInicial();
+      return html`<div key=${t.id} className="kpi" style=${{ minWidth: 92, borderLeft: `5px solid ${d == null ? 'var(--sin)' : d >= cfg.dias_alerta_aplicacion ? 'var(--amarillo)' : 'var(--verde)'}` }}>
+        <span>${t.codigo}</span><b className="num" style=${{ fontSize: '1.3rem' }}>${d == null ? '—' : d + ' d'}</b></div>`;
+    })}</div>
+    ${reps.length > 0 && html`<div className="aviso"><b>Manejo de resistencia:</b> ${reps.length} caso(s) de aplicaciones consecutivas con el mismo grupo FRAC en una tabla. El más reciente: ${reps.sort((a, b) => b.a.fecha.localeCompare(a.a.fecha))[0].tabla.codigo}, grupo ${reps[0].a.grupo_frac} (${fechaSinAnio(reps[0].b.fecha)} y ${fechaSinAnio(reps[0].a.fecha)}).</div>`}
+    <h2 style=${{ margin: '18px 0 10px' }}>Historial</h2>
+    ${apps.length ? html`<ul className="lista">${apps.map(a => {
+      const puede = esAdmin || a.usuario_id === usuario.id;
+      return html`<li key=${a.id}><div className="item" style=${{ cursor: 'default', flexWrap: 'wrap' }}>
+        <div style=${{ flex: '1 1 200px' }}><div style=${{ fontWeight: 700 }}>${fechaCorta(a.fecha)}: ${a.producto}</div>
+          <div className="peq muted">${a.ingrediente_activo}${a.grupo_frac ? `, FRAC ${a.grupo_frac}` : ''}${a.dosis != null ? `, ${a.dosis} ${a.unidad}` : ''}${a.metodo ? `, ${a.metodo.toLowerCase()}` : ''}</div>
+          <div className="peq">${a.tabla_ids.map(id => (st.datos.tablas[id] || {}).codigo).filter(Boolean).join(', ')}</div></div>
+        ${puede && html`<div className="fila-btn"><button className="btn btn-s btn-q" onClick=${() => setForm({ app: a })}>Editar</button>
+          ${esAdmin && html`<button className="btn btn-s btn-x" onClick=${async () => { if (await confirmar(`${fechaCorta(a.fecha)}: ${a.producto}`, { titulo: '¿Eliminar esta aplicación?', aceptar: 'Eliminar', peligro: true })) Store.eliminar('aplicaciones', a.id); }}>Eliminar</button>`}</div>`}
+      </div></li>`;
+    })}</ul>` : html`<div className="caja vacio-panel">Aún no hay aplicaciones registradas.</div>`}
+    ${form && html`<${FormAplicacion} inicial=${form.app} usuario=${usuario} onCerrar=${() => setForm(null)} />`}
+  </div>`;
+}
+
+/* ---------- Gráficas ---------- */
+function escalaNice(min, max, n = 5) {
+  if (min == null || max == null) return { min: 0, max: 1, ticks: [0, 1] };
+  if (min === max) { min = min - 1; max = max + 1; }
+  const paso0 = (max - min) / n; const mag = Math.pow(10, Math.floor(Math.log10(paso0))); const r = paso0 / mag;
+  const paso = (r > 5 ? 10 : r > 2 ? 5 : r > 1 ? 2 : 1) * mag;
+  const lo = Math.floor(min / paso) * paso, hi = Math.ceil(max / paso) * paso;
+  const ticks = []; for (let v = lo; v <= hi + paso / 2; v += paso) ticks.push(+v.toFixed(6));
+  return { min: lo, max: hi, ticks };
+}
+function GraficaLineas({ semanas, series, marcadores = [], alto = 260, sel, onSel, ceroBase = true, refs = [] }) {
+  const [ref, ancho] = useAncho();
+  const W = Math.max(ancho, 280), H = alto, pad = { l: 46, r: 14, t: 16, b: 30 };
+  const n = semanas.length;
+  const x = i => pad.l + (n <= 1 ? (W - pad.l - pad.r) / 2 : i * (W - pad.l - pad.r) / (n - 1));
+  const vals = series.flatMap(s => s.valores).filter(v => v != null);
+  const esc = escalaNice(vals.length ? (ceroBase ? Math.min(0, ...vals) : Math.min(...vals)) : 0, vals.length ? Math.max(...vals, ...refs.map(r => r.v)) : 1);
+  const y = v => pad.t + (H - pad.t - pad.b) * (1 - (v - esc.min) / (esc.max - esc.min || 1));
+  const paso = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((W - pad.l) / 46))));
+  const colW = n > 1 ? (W - pad.l - pad.r) / (n - 1) : W;
+  return html`<div ref=${ref} style=${{ width: '100%' }}>
+    <svg width=${W} height=${H} role="img" aria-label="Serie semanal" style=${{ display: 'block', overflow: 'visible' }}>
+      ${esc.ticks.map(t => html`<g key=${t}><line x1=${pad.l} x2=${W - pad.r} y1=${y(t)} y2=${y(t)} stroke="var(--line)" stroke-width="1" />
+        <text x=${pad.l - 6} y=${y(t) + 4} text-anchor="end" font-size="12" fill="var(--ink-2)">${fmt(t, t % 1 ? 1 : 0)}</text></g>`)}
+      ${refs.map((r, i) => html`<g key=${'r' + i}><line x1=${pad.l} x2=${W - pad.r} y1=${y(r.v)} y2=${y(r.v)} stroke=${r.color} stroke-width="2" stroke-dasharray="2 4" />
+        <text x=${W - pad.r} y=${y(r.v) - 4} text-anchor="end" font-size="11" fill=${r.color} font-weight="700">${r.etq}</text></g>`)}
+      ${semanas.map((s, i) => i % paso === 0 ? html`<text key=${s} x=${x(i)} y=${H - 8} text-anchor="middle" font-size="12" fill="var(--ink-2)">${etqSem(s)}</text>` : null)}
+      ${marcadores.map((m, k) => html`<g key=${'m' + k}><line x1=${x(m.i)} x2=${x(m.i)} y1=${pad.t} y2=${H - pad.b} stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 4" />
+        <path d=${`M${x(m.i) - 7},${pad.t - 12} h14 l-7,10 z`} fill="var(--ink)"><title>${m.titulo}</title></path></g>`)}
+      ${sel != null && sel < n && html`<line x1=${x(sel)} x2=${x(sel)} y1=${pad.t} y2=${H - pad.b} stroke="var(--banana)" stroke-width="3" />`}
+      ${series.map((s, si) => {
+        const pts = s.valores.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+        if (!pts.length) return null;
+        return html`<g key=${s.id}>
+          <path d=${'M' + pts.map(p => p.join(',')).join(' L')} fill="none" stroke=${s.color} stroke-width=${s.grueso ? 4 : 2.5} stroke-linejoin="round" stroke-linecap="round" />
+          ${pts.map((p, j) => html`<circle key=${j} cx=${p[0]} cy=${p[1]} r=${s.grueso ? 4.5 : 3.2} fill=${s.color} />`)}</g>`;
+      })}
+      ${semanas.map((s, i) => html`<rect key=${'h' + s} x=${x(i) - colW / 2} y=${pad.t} width=${colW} height=${H - pad.t - pad.b} fill="transparent"
+        onClick=${() => onSel && onSel(i)} onMouseEnter=${() => onSel && onSel(i)} style=${{ cursor: 'pointer' }} />`)}
+    </svg></div>`;
+}
+function GraficaClima({ semanas, barras, linea, alto = 150, sel, onSel, etqBarras, etqLinea }) {
+  const [ref, ancho] = useAncho();
+  const W = Math.max(ancho, 280), H = alto, pad = { l: 46, r: 46, t: 12, b: 26 };
+  const n = semanas.length;
+  const x = i => pad.l + (n <= 1 ? (W - pad.l - pad.r) / 2 : i * (W - pad.l - pad.r) / (n - 1));
+  const colW = n > 1 ? (W - pad.l - pad.r) / (n - 1) : 40;
+  const vb = barras.filter(v => v != null), vl = linea.filter(v => v != null);
+  const eb = escalaNice(0, vb.length ? Math.max(...vb, 1) : 1, 3), el = escalaNice(vl.length ? Math.min(...vl) : 0, vl.length ? Math.max(...vl) : 1, 3);
+  const yb = v => pad.t + (H - pad.t - pad.b) * (1 - v / (eb.max || 1));
+  const yl = v => pad.t + (H - pad.t - pad.b) * (1 - (v - el.min) / ((el.max - el.min) || 1));
+  const pts = linea.map((v, i) => v == null ? null : [x(i), yl(v)]).filter(Boolean);
+  const paso = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((W - pad.l) / 46))));
+  return html`<div ref=${ref}><svg width=${W} height=${H} role="img" aria-label="Clima semanal" style=${{ display: 'block' }}>
+    ${eb.ticks.map(t => html`<g key=${'b' + t}><line x1=${pad.l} x2=${W - pad.r} y1=${yb(t)} y2=${yb(t)} stroke="var(--line)" />
+      <text x=${pad.l - 6} y=${yb(t) + 4} text-anchor="end" font-size="11" fill="var(--info)">${fmt(t, 0)}</text></g>`)}
+    ${el.ticks.map(t => html`<text key=${'l' + t} x=${W - pad.r + 6} y=${yl(t) + 4} font-size="11" fill="var(--s3)">${fmt(t, 0)}</text>`)}
+    ${barras.map((v, i) => v == null ? null : html`<rect key=${i} x=${x(i) - Math.min(colW * 0.32, 14)} width=${Math.min(colW * 0.64, 28)} y=${yb(v)} height=${H - pad.b - yb(v)} fill="var(--info)" opacity="0.55" rx="2" />`)}
+    ${pts.length > 0 && html`<path d=${'M' + pts.map(p => p.join(',')).join(' L')} fill="none" stroke="var(--s3)" stroke-width="2.5" />`}
+    ${pts.map((p, j) => html`<circle key=${'c' + j} cx=${p[0]} cy=${p[1]} r="3" fill="var(--s3)" />`)}
+    ${sel != null && sel < n && html`<line x1=${x(sel)} x2=${x(sel)} y1=${pad.t} y2=${H - pad.b} stroke="var(--banana)" stroke-width="3" />`}
+    ${semanas.map((s, i) => i % paso === 0 ? html`<text key=${s} x=${x(i)} y=${H - 6} text-anchor="middle" font-size="12" fill="var(--ink-2)">${etqSem(s)}</text>` : null)}
+    ${semanas.map((s, i) => html`<rect key=${'h' + s} x=${x(i) - colW / 2} y=${pad.t} width=${colW} height=${H - pad.t - pad.b} fill="transparent" onClick=${() => onSel && onSel(i)} onMouseEnter=${() => onSel && onSel(i)} />`)}
+  </svg>
+  <div className="leyenda"><span><i className="sem" style=${{ background: 'var(--info)', opacity: .55, borderRadius: 3 }}></i>${etqBarras} (eje izq.)</span><span><i className="sem" style=${{ background: 'var(--s3)' }}></i>${etqLinea} (eje der.)</span></div>
+  </div>`;
+}
+
+function MapaTablas({ tablas, valores, umbrales, sel, onSel }) {
+  const conGeo = tablas.filter(t => t.geometria && t.geometria.coordinates && t.geometria.coordinates[0] && t.geometria.coordinates[0].length > 2);
+  if (!conGeo.length) return html`<div className="vacio-panel">Las tablas no tienen polígonos. Importa el KMZ en Administración.</div>`;
+  const all = conGeo.flatMap(t => t.geometria.coordinates[0]);
+  const lat0 = all.reduce((s, p) => s + p[1], 0) / all.length, k = Math.cos(lat0 * Math.PI / 180);
+  const xs = all.map(p => p[0] * k), ys = all.map(p => -p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const Wv = 1000, esc = Wv / ((maxX - minX) || 1e-6), Hv = Math.max(200, (maxY - minY) * esc), m = 20;
+  const pr = p => [m + (p[0] * k - minX) * esc * (Wv - 2 * m) / Wv, m + (-p[1] - minY) * esc * (Wv - 2 * m) / Wv];
+  const fs = Math.max(14, Math.min(34, Wv / Math.sqrt(conGeo.length) / 6));
+  return html`<div className="mapa"><svg viewBox=${`0 0 ${Wv} ${Hv + 2 * m}`} role="img" aria-label="Mapa de tablas por índice de infección">
+    ${conGeo.map(t => {
+      const ring = t.geometria.coordinates[0].map(pr);
+      const c = ring.reduce((a, p) => [a[0] + p[0] / ring.length, a[1] + p[1] / ring.length], [0, 0]);
+      const v = valores[t.id]; const s = Calc.semaforo(v, umbrales);
+      return html`<g key=${t.id}><polygon points=${ring.map(p => p.join(',')).join(' ')} fill=${COLOR_SEM[s]} fill-opacity=${s === 'sin' ? 0.5 : 0.85}
+          className=${sel === t.id ? 'sel' : ''} onClick=${() => onSel(t.id)}><title>${t.codigo}: II ${fmt(v)}</title></polygon>
+        <text x=${c[0]} y=${c[1]} text-anchor="middle" font-size=${fs} fill="var(--ink)">${t.codigo}</text>
+        <text x=${c[0]} y=${c[1] + fs * 1.05} text-anchor="middle" font-size=${fs * 0.8} fill="var(--ink)">${v == null ? '' : fmt(v)}</text></g>`;
+    })}
+  </svg></div>`;
+}
+
+/* ---------- Tablero ---------- */
+function Tablero() {
+  const st = useStore();
+  const d = st.datos;
+  const cfg = d.config.umbrales || Modelo.configInicial();
+  const hoy = Modelo.hoy();
+  const [desde, setDesde] = usePref('f.desde', Modelo.sumarDias(hoy, -16 * 7));
+  const [hasta, setHasta] = usePref('f.hasta', hoy);
+  const [operador, setOperador] = useState('');
+  const [selTablas, setSelTablas] = useState([]);
+  const [ind, setInd] = useState('ii');
+  const [lag, setLag] = useState(4);
+  const [varClima, setVarClima] = useState('horas_hr_alta');
+  const [semSel, setSemSel] = useState(null);
+  const [hover, setHover] = useState(null);
+  const [tablaDet, setTablaDet] = useState(null);
+  const [mostrarFiltroTablas, setMostrarFiltroTablas] = useState(false);
+  const todasTablas = ordenarTablas(vivos(d.tablas).filter(t => t.activa));
+  const tablasF = selTablas.length ? todasTablas.filter(t => selTablas.includes(t.id)) : todasTablas;
+  const operadores = vivos(d.usuarios);
+  const indic = Analisis.INDICADORES.find(i => i.k === ind);
+  const iiInd = Analisis.INDICADORES[0];
+
+  const fs = useMemo(() => Analisis.filas(d, { desde, hasta, operador: operador || null, tablas: selTablas }), [d.evaluaciones, d.recorridos, desde, hasta, operador, selTablas]);
+  const serie = useMemo(() => Analisis.serie(fs), [fs]);
+  const serieTotal = useMemo(() => Analisis.serie(Analisis.filas(d, {})), [d.evaluaciones, d.recorridos]);
+  const semanas = useMemo(() => desde && hasta && desde <= hasta ? Modelo.rangoSemanas(Modelo.semanaISO(desde), Modelo.semanaISO(hasta)) : [], [desde, hasta]);
+  const semanasConDatos = semanas.filter(s => [...serie.values()].some(m => m.has(s)));
+  const cobertura = s => [...serie.values()].filter(m => m.has(s)).length;
+  const maxCob = Math.max(0, ...semanasConDatos.map(cobertura));
+  const semDefecto = semanasConDatos.filter(s => cobertura(s) >= maxCob / 2).pop() || semanasConDatos[semanasConDatos.length - 1] || null;
+  const semActiva = semSel && semanasConDatos.includes(semSel) ? semSel : semDefecto;
+  const climaSem = useMemo(() => Clima.porSemana(Clima.todosLosDias(d)), [d.clima]);
+  const climaVars = { horas_hr_alta: 'Horas con HR alta', hr_media: 'HR media (%)', temp_media: 'Temp. media (°C)', temp_min: 'Temp. mínima (°C)' };
+
+  // Estado por tabla en la semana activa
+  const estado = tablasF.map(t => {
+    const st_ = serie.get(t.id);
+    let semT = semActiva && st_ && st_.has(semActiva) ? semActiva : null;
+    if (!semT && semActiva) { const p = Analisis.previa(st_, semActiva); if (p && p >= Modelo.sumarSemanas(semActiva, -2)) semT = p; }
+    const v = semT ? Analisis.valorEn(st_, semT, iiInd) : null;
+    const prevS = semT ? Analisis.previa(st_, semT) : null;
+    const vp = prevS ? Analisis.valorEn(st_, prevS, iiInd) : null;
+    const x = st_ && semT ? st_.get(semT) : null;
+    const ua = Analisis.ultimaAplicacion(d, t.id);
+    return { t, ii: v, delta: v != null && vp != null ? v - vp : null, r: x ? x.r : null, dias: ua ? Modelo.diasEntre(ua.fecha, hoy) : null, ua, sem: Calc.semaforo(v, cfg), semT };
+  });
+  const valoresMapa = Object.fromEntries(estado.map(e => [e.t.id, e.ii]));
+  const empeoran = estado.filter(e => e.delta != null && e.delta >= 2).sort((a, b) => b.delta - a.delta);
+  const revisar = estado.filter(e => (e.sem === 'rojo' || e.sem === 'amarillo') && (e.dias == null || e.dias >= cfg.dias_alerta_aplicacion)).sort((a, b) => (b.ii || 0) - (a.ii || 0));
+  const apps = vivos(d.aplicaciones).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const appsVisibles = apps.filter(a => a.tabla_ids.some(id => tablasF.some(t => t.id === id)));
+  const conSeguimiento = a => a.tabla_ids.some(id => { const e = Analisis.efectoAplicacion(serieTotal, a, id); return e && e.antes != null && e.d2; });
+  const ultimaApp = appsVisibles.find(conSeguimiento) || appsVisibles[0];
+  const masReciente = appsVisibles[0] && appsVisibles[0] !== ultimaApp ? appsVisibles[0] : null;
+  const efectoUltima = ultimaApp ? ultimaApp.tabla_ids.filter(id => tablasF.some(t => t.id === id)).map(id => ({ id, e: Analisis.efectoAplicacion(serieTotal, ultimaApp, id) })).filter(x => x.e && x.e.antes != null) : [];
+  const efProm = (k) => { const v = efectoUltima.map(x => x.e[k] && x.e[k].v).filter(v => v != null); return v.length ? Calc.prom(v) : null; };
+  const antesProm = Calc.prom(efectoUltima.map(x => x.e.antes));
+
+  // Repuntes y clima previo (con desfase)
+  const repuntes = [];
+  tablasF.forEach(t => { const m = serie.get(t.id); if (!m) return; [...m.keys()].sort().forEach(k => { const p = Analisis.previa(m, k); if (p) { const dv = Analisis.valorEn(m, k, iiInd) - Analisis.valorEn(m, p, iiInd); if (dv >= 3) repuntes.push(k); } }); });
+  const semRep = [...new Set(repuntes)];
+  const climaAntes = c => Calc.prom(semRep.map(k => { const x = climaSem.get(Modelo.sumarSemanas(k, -lag)); return x ? x[c] : null; }));
+  const climaGeneral = c => Calc.prom(semanas.map(k => { const x = climaSem.get(Modelo.sumarSemanas(k, -lag)); return x ? x[c] : null; }));
+
+  // Series
+  const seriesG = tablasF.map((t, i) => ({ id: t.id, nombre: t.codigo, color: COLOR_SERIE(i), valores: semanas.map(s => Analisis.valorEn(serie.get(t.id), s, indic)) }));
+  const promRancho = semanas.map(s => { const sub = fs.filter(x => x.semana === s).flatMap(x => x.ev.plantas); return sub.length ? indic.get(Calc.resumen(sub)) : null; });
+  if (seriesG.length > 1) seriesG.push({ id: 'rancho', nombre: 'Rancho', color: 'var(--ink)', valores: promRancho, grueso: true });
+  const marcadores = [];
+  appsVisibles.forEach(a => { const i = semanas.indexOf(Modelo.semanaISO(a.fecha)); if (i >= 0) marcadores.push({ i, titulo: `${fechaSinAnio(a.fecha)}: ${a.producto} (FRAC ${a.grupo_frac})`, a }); });
+  const climaDesf = semanas.map(s => climaSem.get(Modelo.sumarSemanas(s, -lag)) || null);
+  const hv = hover != null ? hover : null;
+
+  const detT = tablaDet && tablasF.some(t => t.id === tablaDet) ? tablaDet : (estado.slice().sort((a, b) => (b.ii || -1) - (a.ii || -1))[0] || {}).t?.id;
+  const det = detT && semActiva && serie.get(detT) ? serie.get(detT).get(semActiva) : null;
+  const dist = det ? Calc.distribucion(det.plantas) : [];
+  const nombreT = id => (d.tablas[id] || {}).codigo || '?';
+
+  async function exportar(tipo) {
+    const t = Exportar.tablasPlano(d, { desde, hasta, operador: operador || null, tablas: selTablas });
+    const sufijo = `${desde}_${hasta}`;
+    try {
+      let r;
+      if (tipo === 'xlsx') r = await Exportar.descargar(`sigatoka_${sufijo}.xlsx`, Exportar.excel(t));
+      else r = await Exportar.descargar(`sigatoka_${tipo}_${sufijo}.csv`, Exportar.csv(t[tipo]));
+      if (r === 'ok') avisar('Archivo listo');
+    } catch (e) { avisar(e.message || 'No se pudo exportar'); }
+  }
+  const valorSemana = (arr, i) => arr[i] == null ? '—' : fmt(arr[i], indic.dec);
+
+  return html`<div>
+    <div style=${{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}><h1 style=${{ marginRight: 'auto' }}>Tablero</h1>
+      <span className="muted peq">${fs.length} evaluaciones de tabla, ${fs.reduce((s, x) => s + x.ev.plantas.length, 0)} plantas en el periodo</span></div>
+    <div className="caja" style=${{ margin: '12px 0 16px' }}>
+      <div className="filtros">
+        <label>Desde<input className="inp" type="date" value=${desde} onChange=${e => setDesde(e.target.value)} /></label>
+        <label>Hasta<input className="inp" type="date" value=${hasta} onChange=${e => setHasta(e.target.value)} /></label>
+        <label>Semana de corte<select className="inp" value=${semActiva || ''} onChange=${e => setSemSel(e.target.value)}>${semanasConDatos.slice().reverse().map(s => html`<option key=${s} value=${s}>${etqSem(s)} (${fechaSinAnio(Modelo.lunesDeSemana(s))})</option>`)}</select></label>
+        <label>Operador<select className="inp" value=${operador} onChange=${e => setOperador(e.target.value)}><option value="">Todos</option>${operadores.map(u => html`<option key=${u.id} value=${u.id}>${u.nombre}</option>`)}</select></label>
+        <button className="btn btn-s btn-q" onClick=${() => setMostrarFiltroTablas(!mostrarFiltroTablas)}>Tablas: ${selTablas.length ? selTablas.length + ' de ' + todasTablas.length : 'todas'}</button>
+      </div>
+      ${mostrarFiltroTablas && html`<div style=${{ marginTop: 12 }}><${SelectorTablas} tablas=${todasTablas} sel=${selTablas} onCambio=${setSelTablas} />
+        <button className="enlace" onClick=${() => setSelTablas([])}>Ver todas</button></div>`}
+    </div>
+
+    ${!fs.length ? html`<div className="caja vacio-panel">No hay evaluaciones con estos filtros. Amplía el rango de fechas o captura un recorrido.</div>` : html`
+    <div className="respuestas" style=${{ marginBottom: 16 }}>
+      <div className="resp" style=${{ borderLeftColor: 'var(--rojo)' }}><h3>¿Qué tablas empeoran?</h3>
+        ${empeoran.length ? html`<p>${empeoran.slice(0, 5).map(e => `${e.t.codigo} (+${fmt(e.delta)})`).join(', ')}</p><p className="muted peq">Subida del II respecto a la evaluación anterior, semana ${etqSem(semActiva)}.</p>`
+          : html`<p>Ninguna subió 2 puntos o más de II en ${etqSem(semActiva)}.</p>`}</div>
+      <div className="resp" style=${{ borderLeftColor: 'var(--amarillo)' }}><h3>¿Cuándo aplicar?</h3>
+        ${revisar.length ? html`<p>Revisar: ${revisar.slice(0, 6).map(e => `${e.t.codigo} (II ${fmt(e.ii)}, ${e.dias == null ? 'sin aplicación' : e.dias + ' d'})`).join(', ')}</p>`
+          : html`<p>Ninguna tabla en riesgo medio o alto con más de ${cfg.dias_alerta_aplicacion} días sin aplicación.</p>`}
+        <p className="muted peq">Regla provisional: semáforo medio o alto y ${cfg.dias_alerta_aplicacion}+ días desde la última aplicación. Ajústala en Administración.</p></div>
+      <div className="resp" style=${{ borderLeftColor: 'var(--leaf)' }}><h3>¿Funcionó la última aplicación?</h3>
+        ${ultimaApp ? html`<p>${fechaSinAnio(ultimaApp.fecha)}: ${ultimaApp.producto} (FRAC ${ultimaApp.grupo_frac || '—'}) en ${ultimaApp.tabla_ids.length} tabla(s).</p>
+          ${antesProm != null ? html`<p>II promedio: <b>${fmt(antesProm)}</b> antes → ${efProm('d2') != null ? html`<b>${fmt(efProm('d2'))}</b> a 2 semanas` : 'sin dato a 2 semanas'}${efProm('d4') != null ? html` → <b>${fmt(efProm('d4'))}</b> a 4 semanas` : ''}.</p>`
+            : html`<p className="muted">No hay evaluaciones antes de la aplicación para comparar.</p>`}
+          ${masReciente && html`<p className="muted peq">La más reciente (${fechaSinAnio(masReciente.fecha)}, ${masReciente.producto}) aún no tiene 2 semanas de seguimiento.</p>`}` : html`<p>No hay aplicaciones en las tablas filtradas.</p>`}</div>
+      <div className="resp" style=${{ borderLeftColor: 'var(--info)' }}><h3>¿Qué clima precedió los repuntes?</h3>
+        ${semRep.length && climaSem.size ? html`<p>${semRep.length} semana(s) con repunte (II +3 o más). ${lag} semanas antes hubo en promedio <b>${fmt(climaAntes('horas_hr_alta'), 0)} h</b> de HR alta y <b>${fmt(climaAntes('precipitacion'), 0)} mm</b> de lluvia por semana,
+          contra ${fmt(climaGeneral('horas_hr_alta'), 0)} h y ${fmt(climaGeneral('precipitacion'), 0)} mm del periodo.</p>`
+          : html`<p>${climaSem.size ? 'No hubo repuntes de 3 puntos o más en el periodo.' : 'Carga datos de clima en Administración para cruzarlos con los repuntes.'}</p>`}</div>
+    </div>
+
+    <div className="rej-tab">
+      <section className="panel c5">
+        <div className="panel-cab"><h2>Mapa de riesgo</h2><span className="muted peq">II, semana ${etqSem(semActiva)}</span></div>
+        <${MapaTablas} tablas=${tablasF} valores=${valoresMapa} umbrales=${cfg} sel=${detT} onSel=${setTablaDet} />
+        <div className="leyenda">${['verde', 'amarillo', 'rojo', 'sin'].map(s => html`<span key=${s}><i className="sem" style=${{ background: COLOR_SEM[s] }}></i>${TXT_SEM[s]}${s === 'verde' ? ` (<${cfg.ii_verde})` : s === 'amarillo' ? ` (${cfg.ii_verde}–${cfg.ii_amarillo})` : s === 'rojo' ? ` (≥${cfg.ii_amarillo})` : ''}</span>`)}</div>
+      </section>
+      <section className="panel c7">
+        <div className="panel-cab"><h2>Estado por tabla</h2><span className="muted peq">Semana ${etqSem(semActiva)} o la evaluación más reciente de las 2 semanas previas. Toca una fila para ver el detalle.</span></div>
+        <div className="desliza"><table className="datos">
+          <thead><tr><th></th><th>Tabla</th><th className="n">II</th><th className="n">Δ II</th><th className="n">HF</th><th className="n">HMJE</th><th className="n">HMJM</th><th className="n">Plantas</th><th className="n">Días sin aplicar</th><th>Sem.</th></tr></thead>
+          <tbody>${estado.slice().sort((a, b) => (b.ii ?? -1) - (a.ii ?? -1)).map(e => html`<tr key=${e.t.id} className="clic" onClick=${() => setTablaDet(e.t.id)} style=${detT === e.t.id ? { outline: '2px solid var(--ink)' } : null}>
+            <td><i className="sem" style=${{ background: COLOR_SEM[e.sem] }} title=${TXT_SEM[e.sem]}></i></td><td><b>${e.t.codigo}</b></td>
+            <td className="n">${fmt(e.ii)}</td>
+            <td className="n" style=${{ color: e.delta == null ? '' : e.delta > 0.5 ? 'var(--error)' : e.delta < -0.5 ? 'var(--verde)' : '' , fontWeight: 700 }}>${e.delta == null ? '—' : (e.delta > 0 ? '+' : '') + fmt(e.delta)}</td>
+            <td className="n">${fmt(e.r && e.r.hf)}</td><td className="n">${fmt(e.r && e.r.estria.prom)}</td><td className="n">${fmt(e.r && e.r.mancha.prom)}</td>
+            <td className="n">${e.r ? e.r.n : '—'}</td><td className="n">${e.dias == null ? '—' : e.dias}</td>
+            <td className="peq" style=${{ color: e.semT && e.semT !== semActiva ? 'var(--aviso)' : 'var(--ink-2)' }}>${e.semT ? etqSem(e.semT) : '—'}</td></tr>`)}</tbody>
+        </table></div>
+      </section>
+
+      <section className="panel c12">
+        <div className="panel-cab"><h2>Tendencia semanal</h2>
+          <div className="seg" role="tablist">${Analisis.INDICADORES.map(i => html`<button key=${i.k} className=${ind === i.k ? 'activo' : ''} onClick=${() => setInd(i.k)}>${i.corto}</button>`)}</div></div>
+        <p className="muted peq" style=${{ marginTop: -4 }}>${indic.nombre}${indic.unidad ? ` (${indic.unidad})` : ''}. ${indic.peorSi === 'sube' ? 'Más alto es peor.' : 'Más bajo es peor.'} Los triángulos marcan aplicaciones de fungicida.</p>
+        <${GraficaLineas} semanas=${semanas} series=${seriesG} marcadores=${marcadores} sel=${hv} onSel=${setHover} ceroBase=${ind === 'ii'}
+          refs=${ind === 'ii' ? [{ v: cfg.ii_verde, color: 'var(--amarillo)', etq: 'umbral medio' }, { v: cfg.ii_amarillo, color: 'var(--rojo)', etq: 'umbral alto' }] : []} />
+        <div className="leyenda">${seriesG.map(s => html`<span key=${s.id}><i className="sem" style=${{ background: s.color }}></i>${s.nombre}</span>`)}</div>
+        <div className="panel-cab" style=${{ marginTop: 14 }}><h3 style=${{ marginRight: 'auto' }}>Clima de ${lag === 0 ? 'la misma semana' : lag + ' semana' + (lag > 1 ? 's' : '') + ' antes'}</h3>
+          <label className="peq" style=${{ display: 'flex', gap: 6, alignItems: 'center', fontWeight: 700 }}>Desfase<select className="inp" style=${{ width: 'auto', minHeight: 42 }} value=${lag} onChange=${e => setLag(Number(e.target.value))}>${[0, 1, 2, 3, 4, 5, 6, 7, 8].map(n => html`<option key=${n} value=${n}>${n} sem</option>`)}</select></label>
+          <select className="inp" style=${{ width: 'auto', minHeight: 42 }} value=${varClima} onChange=${e => setVarClima(e.target.value)}>${Object.entries(climaVars).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select></div>
+        ${climaSem.size ? html`<${GraficaClima} semanas=${semanas} barras=${climaDesf.map(c => c ? c.precipitacion : null)} linea=${climaDesf.map(c => c ? c[varClima] : null)} sel=${hv} onSel=${setHover} etqBarras="Lluvia (mm/sem)" etqLinea=${climaVars[varClima]} />`
+          : html`<div className="vacio-panel">Sin datos de clima. Impórtalos o genera datos simulados en Administración.</div>`}
+        ${hv != null && semanas[hv] && html`<div className="lectura">
+          <b>${etqSem(semanas[hv])}</b> (${fechaSinAnio(Modelo.lunesDeSemana(semanas[hv]))}): ${seriesG.filter(s => s.valores[hv] != null).map(s => `${s.nombre} ${valorSemana(s.valores, hv)}`).join(', ') || 'sin evaluaciones'}.
+          ${marcadores.filter(m => m.i === hv).map(m => html`<div key=${m.a.id}>Aplicación: ${m.titulo}</div>`)}
+          ${climaDesf[hv] && html`<div>Clima ${lag ? `de ${etqSem(Modelo.sumarSemanas(semanas[hv], -lag))}` : ''}: lluvia ${fmt(climaDesf[hv].precipitacion, 0)} mm, HR media ${fmt(climaDesf[hv].hr_media, 0)} %, ${fmt(climaDesf[hv].horas_hr_alta, 0)} h de HR alta, temp. media ${fmt(climaDesf[hv].temp_media)} °C.</div>`}
+        </div>`}
+      </section>
+
+      <section className="panel c6">
+        <div className="panel-cab"><h2>Comparativo de la semana</h2><span className="muted peq">${indic.corto}, ${etqSem(semActiva)}</span></div>
+        ${(() => {
+          const filas = tablasF.map(t => ({ t, v: Analisis.valorEn(serie.get(t.id), semActiva, indic) })).filter(x => x.v != null).sort((a, b) => indic.peorSi === 'sube' ? b.v - a.v : a.v - b.v);
+          const mx = Math.max(...filas.map(f => f.v), 1);
+          return filas.length ? filas.map(f => html`<div key=${f.t.id} className="barra-h"><b>${f.t.codigo}</b>
+            <div className="fondo"><div className="val" style=${{ width: (f.v / mx * 100) + '%', background: ind === 'ii' ? COLOR_SEM[Calc.semaforo(f.v, cfg)] : 'var(--leaf)' }}></div></div>
+            <span className="num" style=${{ textAlign: 'right' }}>${fmt(f.v, indic.dec)}</span></div>`) : html`<div className="vacio-panel">Sin datos en esta semana.</div>`;
+        })()}
+      </section>
+
+      <section className="panel c6">
+        <div className="panel-cab"><h2>Efecto de las aplicaciones</h2><span className="muted peq">II antes y después, últimas 4 aplicaciones</span></div>
+        <div className="desliza"><table className="datos"><thead><tr><th>Fecha</th><th>Producto</th><th>FRAC</th><th>Tabla</th><th className="n">Antes</th><th className="n">+2 sem</th><th className="n">+4 sem</th><th className="n">Cambio</th></tr></thead>
+          <tbody>${appsVisibles.slice(0, 4).flatMap(a => a.tabla_ids.filter(id => tablasF.some(t => t.id === id)).map((id, j) => {
+            const e = Analisis.efectoAplicacion(serieTotal, a, id) || {};
+            const dd = e.d4 && e.antes != null ? e.d4.v - e.antes : e.d2 && e.antes != null ? e.d2.v - e.antes : null;
+            return html`<tr key=${a.id + id}><td>${j === 0 ? fechaSinAnio(a.fecha) : ''}</td><td>${j === 0 ? a.producto : ''}</td><td>${j === 0 ? a.grupo_frac : ''}</td><td><b>${nombreT(id)}</b></td>
+              <td className="n">${fmt(e.antes)}</td><td className="n">${fmt(e.d2 && e.d2.v)}</td>
+              <td className="n">${fmt(e.d4 && e.d4.v)}</td>
+              <td className="n" style=${{ color: dd == null ? '' : dd < 0 ? 'var(--verde)' : 'var(--error)', fontWeight: 700 }}>${dd == null ? '—' : (dd > 0 ? '+' : '') + fmt(dd)}</td></tr>`;
+          }))}</tbody></table></div>
+        ${!appsVisibles.length && html`<div className="vacio-panel">Sin aplicaciones registradas.</div>`}
+      </section>
+
+      <section className="panel c12">
+        <div className="panel-cab"><h2>Detalle por planta y hoja</h2>
+          <select className="inp" style=${{ width: 'auto', minHeight: 44 }} value=${detT || ''} onChange=${e => setTablaDet(e.target.value)}>${tablasF.map(t => html`<option key=${t.id} value=${t.id}>${t.codigo}</option>`)}</select>
+          <span className="muted peq">semana ${etqSem(semActiva)}</span></div>
+        ${det ? html`<div>
+          <div className="kpis" style=${{ marginBottom: 12 }}>
+            <div className="kpi"><b className="num">${fmt(det.r.ii)}</b><span>II (%)</span></div><div className="kpi"><b className="num">${fmt(det.r.th)}</b><span>TH prom.</span></div>
+            <div className="kpi"><b className="num">${fmt(det.r.hf)}</b><span>HF prom.</span></div><div className="kpi"><b className="num">${fmt(det.r.pizca.prom)}</b><span>Pizca prom.</span></div>
+            <div className="kpi"><b className="num">${fmt(det.r.estria.prom)}</b><span>HMJE prom.${det.r.estria.no_presenta ? ` (${det.r.estria.no_presenta} sin estría)` : ''}</span></div>
+            <div className="kpi"><b className="num">${fmt(det.r.mancha.prom)}</b><span>HMJM prom.${det.r.mancha.no_presenta ? ` (${det.r.mancha.no_presenta} sin mancha)` : ''}</span></div></div>
+          <h3 style=${{ margin: '8px 0' }}>Distribución de grados por posición de hoja</h3>
+          ${dist.map((fila, i) => { const tot = fila.reduce((a, b) => a + b, 0); return tot ? html`<div key=${i} className="barra-h" style=${{ gridTemplateColumns: '64px 1fr 44px' }}>
+            <span className="peq">Hoja ${i + 1}</span><div className="apilada">${fila.map((c, g) => c ? html`<div key=${g} className=${'gc' + g} style=${{ width: (c / tot * 100) + '%' }} title=${`Grado ${g}: ${c} planta(s)`}></div>` : null)}</div>
+            <span className="peq muted num" style=${{ textAlign: 'right' }}>${tot}</span></div>` : null; })}
+          <div className="leyenda">${Calc.GRADOS.map(g => html`<span key=${g.g}><i className=${'cuad gc' + g.g} style=${{ width: 18, height: 18 }}></i>${g.g}</span>`)}</div>
+          <h3 style=${{ margin: '14px 0 8px' }}>Plantas</h3>
+          <div className="desliza"><table className="datos"><thead><tr><th className="n">Nº</th><th className="n">TH</th><th className="n">HF</th><th className="n">II</th><th className="n">Pizca</th><th className="n">Estría</th><th className="n">Mancha</th><th>Hojas (grado Gauhl)</th><th>Observaciones</th></tr></thead>
+            <tbody>${det.plantas.slice().sort((a, b) => a.numero_planta - b.numero_planta).map(p => html`<tr key=${p.id}>
+              <td className="n">${p.numero_planta}</td><td className="n">${p.total_hojas}</td><td className="n">${Calc.hf(p)}</td><td className="n">${fmt(Calc.iiPlanta(p))}</td>
+              ${['hmj_pizca', 'hmj_estria', 'hmj_mancha'].map(k => html`<td key=${k} className="n">${p[k] == null ? '—' : p[k] === 0 ? 'NP' : p[k]}</td>`)}
+              <td><${TiraHojas} planta=${p} /></td><td style=${{ whiteSpace: 'normal', minWidth: 140 }}>${p.observaciones}</td></tr>`)}</tbody></table></div>
+          <p className="peq muted">NP = no presenta.</p>
+        </div>` : html`<div className="vacio-panel">Sin evaluación de esta tabla en la semana seleccionada.</div>`}
+      </section>
+
+      <section className="panel c12">
+        <div className="panel-cab"><h2>Exportar</h2><span className="muted peq">Con los filtros de fechas, operador y tablas</span></div>
+        <div className="fila-btn">
+          <button className="btn btn-p" onClick=${() => exportar('xlsx')}>Excel (todas las hojas)</button>
+          <button className="btn" onClick=${() => exportar('resumen')}>CSV resumen semanal</button>
+          <button className="btn" onClick=${() => exportar('plantas')}>CSV plantas</button>
+          <button className="btn" onClick=${() => exportar('hojas')}>CSV hojas</button>
+          <button className="btn" onClick=${() => exportar('apps')}>CSV aplicaciones</button>
+          <button className="btn" onClick=${() => exportar('clima')}>CSV clima</button>
+        </div>
+      </section>
+    </div>`}
+  </div>`;
+}
+
+/* ---------- Administración ---------- */
+function Admin({ usuario }) {
+  const st = useStore();
+  const d = st.datos;
+  const cfg = d.config.umbrales || Modelo.configInicial();
+  const [msg, setMsg] = useState(null);
+  const kmz = useRef(null), csvRef = useRef(null);
+  const hoy = Modelo.hoy();
+  const [reemplazar, setReemplazar] = useState(true);
+  const [cDesde, setCDesde] = useState(Modelo.sumarDias(hoy, -24 * 7));
+  const [cHasta, setCHasta] = useState(hoy);
+  const tablas = ordenarTablas(vivos(d.tablas));
+  const usuarios = vivos(d.usuarios);
+  const dias = Clima.todosLosDias(d);
+  const setCfg = (k, v) => Store.put('config', { ...cfg, [k]: v });
+  const editarTabla = (t, k, v) => { if (t[k] !== v) Store.put('tablas', { ...t, [k]: v }); };
+  async function importarKmz(e) {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const pol = await Geo.leer(f);
+      const existentes = vivos(d.tablas);
+      const nuevas = [], act = [];
+      pol.forEach(p => {
+        const geom = { type: 'Polygon', coordinates: [p.anillo] }, sup = Math.round(Geo.areaHa(p.anillo) * 100) / 100;
+        const ex = existentes.find(t => t.codigo === p.nombre && t.origen !== 'ejemplo');
+        if (ex) act.push({ ...ex, geometria: geom, superficie_ha: sup, activa: true });
+        else nuevas.push(Modelo.nuevaTabla({ codigo: p.nombre.slice(0, 40), nombre: p.nombre, superficie_ha: sup, geometria: geom, origen: 'kmz' }));
+      });
+      const tocadas = new Set(act.map(t => t.id));
+      const ejemplos = existentes.filter(t => t.activa && !tocadas.has(t.id) && (reemplazar || t.origen === 'ejemplo')).map(t => ({ ...t, activa: false }));
+      Store.putMuchos('tablas', [...act, ...nuevas, ...ejemplos]);
+      const c = Geo.centroide(pol.flatMap(p => p.anillo));
+      Store.put('config', { ...cfg, rancho_lon: +c[0].toFixed(5), rancho_lat: +c[1].toFixed(5) });
+      setMsg({ t: 'info', m: `Importadas ${nuevas.length} tablas nuevas y ${act.length} actualizadas.${ejemplos.length ? ` Se desactivaron ${ejemplos.length} tablas que no venían en el archivo (sus datos históricos se conservan).` : ''}` });
+    } catch (err) { setMsg({ t: 'error', m: err.message }); }
+  }
+  async function importarCsv(e) {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { const ds = Clima.parseCSV(await f.text()); Store.putMuchos('clima', Clima.aDocumentosMes(ds, d.clima)); setMsg({ t: 'info', m: `Importados ${ds.length} días de clima.` }); }
+    catch (err) { setMsg({ t: 'error', m: err.message }); }
+  }
+  function simularClima() {
+    if (cDesde > cHasta) { setMsg({ t: 'error', m: 'La fecha inicial debe ser anterior a la final.' }); return; }
+    const ds = Clima.simular(cDesde, cHasta, Math.floor(Math.random() * 1e6));
+    Store.putMuchos('clima', Clima.aDocumentosMes(ds, d.clima)); setMsg({ t: 'info', m: `Generados ${ds.length} días de clima simulado.` });
+  }
+  async function cargarDemo() {
+    if (!tablas.some(t => t.activa)) { setMsg({ t: 'error', m: 'Primero activa o importa tablas.' }); return; }
+    if (vivos(d.recorridos).some(r => r.origen === 'demo') && !(await confirmar('Se agregará otro juego de 16 semanas.', { titulo: 'Ya hay datos de demostración', aceptar: 'Agregar' }))) return;
+    const g = Demo.generar(d, cfg);
+    Store.putMuchos('clima', g.clima); Store.putMuchos('recorridos', g.recorridos); Store.putMuchos('evaluaciones', g.evaluaciones); Store.putMuchos('aplicaciones', g.aplicaciones);
+    setMsg({ t: 'info', m: `Se agregaron ${g.recorridos.length} recorridos y ${g.aplicaciones.length} aplicaciones de demostración.` });
+  }
+  async function quitarDemo() {
+    if (!(await confirmar('Se quitan los recorridos, evaluaciones y aplicaciones marcados como demostración. Tus capturas reales no se tocan.', { titulo: '¿Quitar datos de demostración?', aceptar: 'Quitar', peligro: true }))) return;
+    ['recorridos', 'evaluaciones', 'aplicaciones'].forEach(c => Store.putMuchos(c, vivos(d[c]).filter(r => r.origen === 'demo').map(r => ({ ...r, eliminado: true }))));
+    setMsg({ t: 'info', m: 'Datos de demostración eliminados.' });
+  }
+  const [progreso, setProgreso] = useState(null);
+  async function reiniciar() {
+    const srv = st.sync.modo === 'servidor';
+    const ok = await confirmar(srv
+      ? 'Se borra todo en este dispositivo y en el almacén compartido. Los demás dispositivos también quedarán vacíos. No se puede deshacer.'
+      : 'Se borran todos los datos de este dispositivo. No se puede deshacer.', { titulo: '¿Reiniciar la app?', aceptar: 'Borrar todo', peligro: true });
+    if (!ok) return;
+    setProgreso('Borrando…');
+    try { await Reinicio.todo(n => setProgreso(`Borrando… ${n} registros del almacén compartido`)); }
+    catch (e) { setProgreso(null); setMsg({ t: 'error', m: 'No se pudo completar el reinicio: ' + ((e && (e.code || e.message)) || 'error') + '. Intenta de nuevo.' }); }
+  }
+  async function respaldo() {
+    const out = { exportado: Modelo.ahora(), version_modelo: 1 };
+    COLECCIONES.forEach(c => { out[c] = Object.values(d[c]); });
+    const r = await Exportar.descargar(`sigatoka_respaldo_${hoy}.json`, JSON.stringify(out, null, 1));
+    if (r === 'ok') avisar('Respaldo listo');
+  }
+  return html`<div>
+    <h1>Administración</h1>
+    ${msg && html`<div className=${msg.t}>${msg.m}</div>`}
+
+    <section className="seccion"><h2>Tablas</h2>
+      <p className="peq muted">${tablas.filter(t => t.activa).length} activas de ${tablas.length}. Importa el KMZ o KML del rancho; si una tabla ya existe con el mismo nombre, se actualiza su polígono.</p>
+      <input ref=${kmz} type="file" accept=".kmz,.kml" hidden onChange=${importarKmz} />
+      <label className="interruptor" style=${{ display: 'flex' }}><input type="checkbox" checked=${reemplazar} onChange=${e => setReemplazar(e.target.checked)} />Desactivar las tablas que no vengan en el archivo</label>
+      <button className="btn btn-p" onClick=${() => kmz.current.click()}>Importar KMZ o KML</button>
+      <div className="desliza" style=${{ marginTop: 12 }}><table className="datos tabla-admin"><thead><tr><th>Código</th><th>Variedad</th><th className="n">Superficie (ha)</th><th>Origen</th><th>Activa</th></tr></thead>
+        <tbody>${tablas.map(t => html`<tr key=${t.id}>
+          <td><input defaultValue=${t.codigo} style=${{ minWidth: 90 }} onBlur=${e => editarTabla(t, 'codigo', e.target.value.trim() || t.codigo)} /></td>
+          <td><input defaultValue=${t.variedad} style=${{ minWidth: 120 }} onBlur=${e => editarTabla(t, 'variedad', e.target.value.trim())} /></td>
+          <td><input type="number" step="0.01" defaultValue=${t.superficie_ha ?? ''} style=${{ width: 100 }} onBlur=${e => editarTabla(t, 'superficie_ha', e.target.value === '' ? null : Number(e.target.value))} /></td>
+          <td className="peq muted">${{ kmz: 'KMZ', ejemplo: 'Ejemplo', manual: 'Manual' }[t.origen] || t.origen}</td>
+          <td><input type="checkbox" checked=${t.activa} style=${{ width: 24, height: 24, minHeight: 0 }} onChange=${e => editarTabla(t, 'activa', e.target.checked)} aria-label=${'Activa ' + t.codigo} /></td></tr>`)}</tbody></table></div>
+    </section>
+
+    <section className="seccion"><h2>Usuarios</h2>
+      <p className="peq muted">En el prototipo el usuario se elige arriba. En producción cada persona iniciará sesión con su cuenta.</p>
+      <div className="desliza"><table className="datos tabla-admin"><thead><tr><th>Nombre</th><th>Rol</th><th>Activo</th></tr></thead>
+        <tbody>${usuarios.map(u => html`<tr key=${u.id}>
+          <td><input defaultValue=${u.nombre} onBlur=${e => { const v = e.target.value.trim(); if (v && v !== u.nombre) Store.put('usuarios', { ...u, nombre: v }); }} /></td>
+          <td><select value=${u.rol} onChange=${e => Store.put('usuarios', { ...u, rol: e.target.value })}><option value="operador">Operador</option><option value="administrador">Administrador</option></select></td>
+          <td><input type="checkbox" checked=${u.activo !== false} disabled=${u.id === usuario.id} style=${{ width: 24, height: 24, minHeight: 0 }} onChange=${e => Store.put('usuarios', { ...u, activo: e.target.checked })} /></td></tr>`)}</tbody></table></div>
+      <button className="btn" style=${{ marginTop: 10 }} onClick=${() => Store.put('usuarios', Modelo.nuevoUsuario({ nombre: `Operador ${usuarios.filter(u => u.rol === 'operador').length + 1}` }))}>Agregar operador</button>
+    </section>
+
+    <section className="seccion"><h2>Umbrales del semáforo</h2>
+      <div className="aviso peq">Valores provisionales. Defínelos con tu agrónomo antes de usarlos para decidir aplicaciones.</div>
+      <div className="rejilla2">
+        <label className="campo"><span>Riesgo bajo si II es menor que</span><input className="inp" type="number" step="0.5" defaultValue=${cfg.ii_verde} onBlur=${e => setCfg('ii_verde', Number(e.target.value))} /></label>
+        <label className="campo"><span>Riesgo alto si II es mayor o igual a</span><input className="inp" type="number" step="0.5" defaultValue=${cfg.ii_amarillo} onBlur=${e => setCfg('ii_amarillo', Number(e.target.value))} /></label>
+        <label className="campo"><span>Alertar después de (días sin aplicación)</span><input className="inp" type="number" step="1" defaultValue=${cfg.dias_alerta_aplicacion} onBlur=${e => setCfg('dias_alerta_aplicacion', Number(e.target.value))} /></label>
+      </div>
+    </section>
+
+    <section className="seccion"><h2>Clima</h2>
+      <p className="peq muted">${dias.length ? `${dias.length} días cargados, del ${fechaCorta(dias[0].fecha)} al ${fechaCorta(dias[dias.length - 1].fecha)}. Fuente: ${[...new Set(dias.map(x => x.fuente))].join(', ')}.` : 'Sin datos de clima.'}
+        Coordenadas del rancho: ${cfg.rancho_lat}, ${cfg.rancho_lon}. En producción el servidor consultará Open-Meteo una vez al día.</p>
+      <input ref=${csvRef} type="file" accept=".csv,text/csv" hidden onChange=${importarCsv} />
+      <div className="caja">
+        <h3>Importar CSV</h3>
+        <p className="peq">Columnas: <code>fecha, temp_max, temp_min, temp_media, hr_media, precipitacion, horas_hr_alta</code>. Fecha en formato AAAA-MM-DD. Si un día ya existe, se reemplaza.</p>
+        <button className="btn" onClick=${() => csvRef.current.click()}>Importar CSV de clima</button>
+        <h3 style=${{ marginTop: 16 }}>Generar datos simulados</h3>
+        <div className="rejilla2"><label className="campo"><span>Desde</span><input className="inp" type="date" value=${cDesde} onChange=${e => setCDesde(e.target.value)} /></label>
+          <label className="campo"><span>Hasta</span><input className="inp" type="date" value=${cHasta} onChange=${e => setCHasta(e.target.value)} /></label></div>
+        <button className="btn" onClick=${simularClima}>Generar clima simulado</button>
+      </div>
+    </section>
+
+    <section className="seccion"><h2>Datos</h2>
+      <div className="fila-btn">
+        <button className="btn" onClick=${cargarDemo}>Agregar datos de demostración</button>
+        <button className="btn" onClick=${quitarDemo}>Quitar datos de demostración</button>
+        <button className="btn" onClick=${respaldo}>Descargar respaldo JSON</button>
+      </div>
+      <p className="peq muted" style=${{ marginTop: 10 }}>El respaldo JSON contiene una lista por colección (tablas, usuarios, recorridos, evaluaciones con sus plantas y hojas, aplicaciones, clima). Es el formato que se cargará en la base de datos de producción.</p>
+      <div className="caja-borde" style=${{ marginTop: 16, borderColor: 'var(--error)' }}>
+        <h3>Reiniciar la app</h3>
+        <p className="peq">Borra tablas, usuarios, recorridos, aplicaciones, clima y umbrales${st.sync.modo === 'servidor' ? ', en este dispositivo y en el almacén compartido del rancho' : ' de este dispositivo'}, y vuelve a la pantalla de configuración inicial para cargar otro KMZ. Descarga antes un respaldo si lo necesitas.</p>
+        ${progreso ? html`<p style=${{ fontWeight: 700 }}>${progreso}</p>` : html`<button className="btn btn-xp" onClick=${reiniciar}>Reiniciar la app</button>`}
+      </div>
+    </section>
+
+    <section className="seccion"><h2>Preaviso biológico</h2>
+      <div className="info peq">Módulo pendiente. El modelo ya reserva el tipo de evaluación "preaviso" y las plantas marcadas con identificador persistente. Antes de implementarlo hay que definir con el agrónomo los coeficientes del estado evolutivo, la escala de densidad y los umbrales.</div>
+    </section>
+  </div>`;
+}
+
+/* ---------- App ---------- */
+function App() {
+  const st = useStore();
+  const [tab, setTab] = usePref('tab', 'campo');
+  const [uid, setUid] = usePref('usuario', null);
+  const [tema, setTema] = usePref('tema', 'light');
+  useEffect(() => { const f = () => { setTab('campo'); setUid(null); }; window.addEventListener('reinicio', f); return () => window.removeEventListener('reinicio', f); }, [setTab, setUid]);
+  useEffect(() => { if (tema === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', tema); }, [tema]);
+  const usuarios = vivos(st.datos.usuarios).filter(u => u.activo !== false).sort((a, b) => a.rol.localeCompare(b.rol) || a.nombre.localeCompare(b.nombre));
+  const usuario = usuarios.find(u => u.id === uid) || usuarios[0];
+  const esAdmin = usuario && usuario.rol === 'administrador';
+  if (!st.cargado || !st.sync.listo) return html`<div className="cargando">Cargando datos…</div>`;
+  if (!usuarios.length || !vivos(st.datos.tablas).length) return html`<${Bienvenida} /><${Dialogo} />`;
+  const tabs = [['campo', 'Campo', Icono.campo], ['aplicaciones', 'Aplicaciones', Icono.app], ...(esAdmin ? [['tablero', 'Tablero', Icono.tablero], ['admin', 'Admin', Icono.admin]] : [])];
+  const tabActiva = tabs.some(t => t[0] === tab) ? tab : 'campo';
+  return html`<div>
+    <header className="barra">
+      <div className="marca"><span className="marca-hoja" aria-hidden="true"></span><span className="txt">Sigatoka negra</span></div>
+      <select className="sel-usuario" value=${usuario.id} onChange=${e => setUid(e.target.value)} aria-label="Usuario (simulación de roles)">
+        ${usuarios.map(u => html`<option key=${u.id} value=${u.id}>${u.nombre} (${u.rol === 'administrador' ? 'admin' : 'operador'})</option>`)}
+      </select>
+      <button className="pill btn-tema" onClick=${() => setTema(tema === 'light' ? 'dark' : tema === 'dark' ? 'auto' : 'light')} aria-label=${'Tema: ' + (tema === 'light' ? 'claro' : tema === 'dark' ? 'oscuro' : 'automático')} title="Cambiar tema">${tema === 'light' ? '☀' : tema === 'dark' ? '☾' : 'A'}</button>
+      <${Conexion} />
+    </header>
+    <main className=${'contenido' + (tabActiva === 'tablero' ? ' ancho' : '')}>
+      ${tabActiva === 'campo' && html`<${Campo} usuario=${usuario} />`}
+      ${tabActiva === 'aplicaciones' && html`<${Aplicaciones} usuario=${usuario} />`}
+      ${tabActiva === 'tablero' && html`<${Tablero} />`}
+      ${tabActiva === 'admin' && html`<${Admin} usuario=${usuario} />`}
+    </main>
+    <nav className="nav">${tabs.map(([k, n, ic]) => html`<button key=${k} className=${tabActiva === k ? 'activo' : ''} onClick=${() => { setTab(k); window.scrollTo(0, 0); }} aria-current=${tabActiva === k ? 'page' : undefined}>${ic}${n}</button>`)}</nav>
+    <${Toast} />
+    <${Dialogo} />
+  </div>`;
+}
+
+(async function arrancar() {
+  if (!window.React || !window.ReactDOM || !window.htm) { document.getElementById('root').innerHTML = '<div class="cargando">No se pudieron cargar las librerías. Revisa tu conexión y recarga la página.</div>'; return; }
+  ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+  await Store.cargar();
+  Sync.iniciar();
+})();
+</script>
+</body>
+</html>
