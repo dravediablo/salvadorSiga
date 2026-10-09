@@ -1,0 +1,262 @@
+-- Hito 3, pruebas de crear_rancho.
+begin;
+select * from no_plan();
+
+-- ---------------------------------------------------------------------------
+-- Preparación (se deshace con el rollback final)
+--   Rancho A: administrador A, operador A1, operador A2 y un usuario con membresía inactiva.
+--   Rancho B: administrador B.   Además, "solo": una cuenta sin ningún rancho.
+-- ---------------------------------------------------------------------------
+create extension if not exists pgtap with schema extensions;
+
+create schema tap_h;
+grant usage on schema tap_h to anon, authenticated;
+
+create table tap_h.ids (nombre text primary key, id uuid not null);
+grant select on tap_h.ids to anon, authenticated;
+create function tap_h.id(p text) returns uuid language sql stable as $$ select id from tap_h.ids where nombre = p $$;
+grant execute on function tap_h.id(text) to anon, authenticated;
+
+insert into tap_h.ids (nombre, id) values
+  ('admin_a',  'a1000000-0000-0000-0000-000000000001'),
+  ('op1',      'a2000000-0000-0000-0000-000000000002'),
+  ('op2',      'a3000000-0000-0000-0000-000000000003'),
+  ('inactivo', 'a4000000-0000-0000-0000-000000000004'),
+  ('admin_b',  'b1000000-0000-0000-0000-000000000001'),
+  ('solo',     'c1000000-0000-0000-0000-000000000001'),
+  ('rancho_a', 'aa000000-0000-0000-0000-00000000000a'),
+  ('rancho_b', 'bb000000-0000-0000-0000-00000000000b'),
+  ('m_admin_a','a1100000-0000-0000-0000-000000000001'),
+  ('m_op1',    'a1200000-0000-0000-0000-000000000002'),
+  ('m_op2',    'a1300000-0000-0000-0000-000000000003'),
+  ('m_inact',  'a1400000-0000-0000-0000-000000000004'),
+  ('m_admin_b','b1100000-0000-0000-0000-000000000001'),
+  ('t_a1',     'a5100000-0000-0000-0000-000000000001'),
+  ('t_a2',     'a5200000-0000-0000-0000-000000000002'),
+  ('t_b1',     'b5100000-0000-0000-0000-000000000001'),
+  ('rec_op1',  'a6100000-0000-0000-0000-000000000001'),
+  ('rec_op2',  'a6200000-0000-0000-0000-000000000002'),
+  ('rec_cer',  'a6300000-0000-0000-0000-000000000003'),
+  ('rec_b',    'b6100000-0000-0000-0000-000000000001'),
+  ('ev_op1',   'a7100000-0000-0000-0000-000000000001'),
+  ('ev_op2',   'a7200000-0000-0000-0000-000000000002'),
+  ('ev_cer',   'a7300000-0000-0000-0000-000000000003'),
+  ('ev_b',     'b7100000-0000-0000-0000-000000000001'),
+  ('pl_op1',   'a8100000-0000-0000-0000-000000000001'),
+  ('pl_op2',   'a8200000-0000-0000-0000-000000000002'),
+  ('pl_cer',   'a8300000-0000-0000-0000-000000000003'),
+  ('pl_b',     'b8100000-0000-0000-0000-000000000001'),
+  ('ho_op1',   'a9100000-0000-0000-0000-000000000001'),
+  ('ho_op2',   'a9200000-0000-0000-0000-000000000002'),
+  ('ho_cer',   'a9300000-0000-0000-0000-000000000003'),
+  ('ho_b',     'b9100000-0000-0000-0000-000000000001'),
+  ('ap_op1',   'ac100000-0000-0000-0000-000000000001'),
+  ('ap_admin', 'ac200000-0000-0000-0000-000000000002'),
+  ('ap_b',     'bc100000-0000-0000-0000-000000000001'),
+  ('cl_a',     'ad100000-0000-0000-0000-000000000001'),
+  ('cl_b',     'bd100000-0000-0000-0000-000000000001'),
+  ('pm_a',     'ae100000-0000-0000-0000-000000000001'),
+  ('pm_b',     'be100000-0000-0000-0000-000000000001');
+
+insert into auth.users (id, instance_id, aud, role, email)
+select tap_h.id(n), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', n || '@prueba.test'
+from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
+
+-- "solo" tiene cuenta pero ningún rancho; todos los demás tienen perfil.
+insert into public.usuario (id, created_at, updated_at, nombre, email)
+select tap_h.id(n), now(), now(), n, n || '@prueba.test'
+from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
+
+insert into public.rancho (id, created_at, updated_at, nombre) values
+  (tap_h.id('rancho_a'), now(), now(), 'Rancho A'),
+  (tap_h.id('rancho_b'), now(), now(), 'Rancho B');
+
+insert into public.membresia (id, created_at, updated_at, rancho_id, usuario_id, rol, activo) values
+  (tap_h.id('m_admin_a'), now(), now(), tap_h.id('rancho_a'), tap_h.id('admin_a'), 'administrador', true),
+  (tap_h.id('m_op1'),     now(), now(), tap_h.id('rancho_a'), tap_h.id('op1'),      'operador', true),
+  (tap_h.id('m_op2'),     now(), now(), tap_h.id('rancho_a'), tap_h.id('op2'),      'operador', true),
+  (tap_h.id('m_inact'),   now(), now(), tap_h.id('rancho_a'), tap_h.id('inactivo'), 'operador', false),
+  (tap_h.id('m_admin_b'), now(), now(), tap_h.id('rancho_b'), tap_h.id('admin_b'),  'administrador', true);
+
+insert into public."tabla" (id, created_at, updated_at, rancho_id, codigo, nombre, superficie_ha) values
+  (tap_h.id('t_a1'), now(), now(), tap_h.id('rancho_a'), '1', 'Tabla 1', 6.8),
+  (tap_h.id('t_a2'), now(), now(), tap_h.id('rancho_a'), '2', 'Tabla 2', 5.1),
+  (tap_h.id('t_b1'), now(), now(), tap_h.id('rancho_b'), '1', 'Tabla 1 de B', 4.0);
+
+insert into public.recorrido (id, created_at, updated_at, rancho_id, fecha, semana_iso, usuario_id, estado) values
+  (tap_h.id('rec_op1'), now(), now(), tap_h.id('rancho_a'), '2026-10-05', '2026-W41', tap_h.id('op1'), 'en_curso'),
+  (tap_h.id('rec_op2'), now(), now(), tap_h.id('rancho_a'), '2026-10-05', '2026-W41', tap_h.id('op2'), 'en_curso'),
+  (tap_h.id('rec_cer'), now(), now(), tap_h.id('rancho_a'), '2026-09-28', '2026-W40', tap_h.id('op1'), 'cerrado'),
+  (tap_h.id('rec_b'),   now(), now(), tap_h.id('rancho_b'), '2026-10-05', '2026-W41', tap_h.id('admin_b'), 'en_curso');
+
+insert into public.evaluacion_tabla (id, created_at, updated_at, rancho_id, recorrido_id, tabla_id) values
+  (tap_h.id('ev_op1'), now(), now(), tap_h.id('rancho_a'), tap_h.id('rec_op1'), tap_h.id('t_a1')),
+  (tap_h.id('ev_op2'), now(), now(), tap_h.id('rancho_a'), tap_h.id('rec_op2'), tap_h.id('t_a1')),
+  (tap_h.id('ev_cer'), now(), now(), tap_h.id('rancho_a'), tap_h.id('rec_cer'), tap_h.id('t_a1')),
+  (tap_h.id('ev_b'),   now(), now(), tap_h.id('rancho_b'), tap_h.id('rec_b'),   tap_h.id('t_b1'));
+
+insert into public.planta (id, created_at, updated_at, rancho_id, evaluacion_tabla_id, numero_planta, total_hojas) values
+  (tap_h.id('pl_op1'), now(), now(), tap_h.id('rancho_a'), tap_h.id('ev_op1'), 1, 10),
+  (tap_h.id('pl_op2'), now(), now(), tap_h.id('rancho_a'), tap_h.id('ev_op2'), 1, 10),
+  (tap_h.id('pl_cer'), now(), now(), tap_h.id('rancho_a'), tap_h.id('ev_cer'), 1, 10),
+  (tap_h.id('pl_b'),   now(), now(), tap_h.id('rancho_b'), tap_h.id('ev_b'),   1, 10);
+
+insert into public.hoja (id, created_at, updated_at, rancho_id, planta_id, numero_hoja, grado_gauhl) values
+  (tap_h.id('ho_op1'), now(), now(), tap_h.id('rancho_a'), tap_h.id('pl_op1'), 1, 2),
+  (tap_h.id('ho_op2'), now(), now(), tap_h.id('rancho_a'), tap_h.id('pl_op2'), 1, 2),
+  (tap_h.id('ho_cer'), now(), now(), tap_h.id('rancho_a'), tap_h.id('pl_cer'), 1, 2),
+  (tap_h.id('ho_b'),   now(), now(), tap_h.id('rancho_b'), tap_h.id('pl_b'),   1, 2);
+
+insert into public.aplicacion (id, created_at, updated_at, rancho_id, fecha, tabla_ids, producto, usuario_id) values
+  (tap_h.id('ap_op1'),   now(), now(), tap_h.id('rancho_a'), '2026-10-01', array[tap_h.id('t_a1')], 'Producto A', tap_h.id('op1')),
+  (tap_h.id('ap_admin'), now(), now(), tap_h.id('rancho_a'), '2026-10-02', array[tap_h.id('t_a2')], 'Producto A2', tap_h.id('admin_a')),
+  (tap_h.id('ap_b'),     now(), now(), tap_h.id('rancho_b'), '2026-10-01', array[tap_h.id('t_b1')], 'Producto B', tap_h.id('admin_b'));
+
+insert into public.clima_diario (id, created_at, updated_at, rancho_id, fecha) values
+  (tap_h.id('cl_a'), now(), now(), tap_h.id('rancho_a'), '2026-10-01'),
+  (tap_h.id('cl_b'), now(), now(), tap_h.id('rancho_b'), '2026-10-01');
+
+insert into public.planta_marcada (id, created_at, updated_at, rancho_id, tabla_id, fecha_marcado) values
+  (tap_h.id('pm_a'), now(), now(), tap_h.id('rancho_a'), tap_h.id('t_a1'), '2026-10-01'),
+  (tap_h.id('pm_b'), now(), now(), tap_h.id('rancho_b'), tap_h.id('t_b1'), '2026-10-01');
+
+-- ---------------------------------------------------------------------------
+-- Ayudantes de las pruebas
+-- ---------------------------------------------------------------------------
+-- Inicia sesión como una persona (rol authenticated + JWT con su sub). Se llama siempre desde postgres.
+create function tap_h.como(p_nombre text) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', tap_h.id(p_nombre), 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', tap_h.id(p_nombre)::text, true);
+  set local role authenticated;
+end;
+$$;
+-- Visitante sin sesión.
+create function tap_h.como_anon() returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role anon;
+end;
+$$;
+
+create function tap_h.tablas() returns text[] language sql immutable as $$
+  select array['rancho', 'usuario', 'membresia', 'tabla', 'recorrido', 'evaluacion_tabla', 'planta', 'hoja', 'aplicacion', 'clima_diario', 'planta_marcada']
+$$;
+
+-- Filas de un rancho que ve quien está conectado. En rancho y usuario no hay rancho_id: se cuenta por id de la persona de B / el rancho.
+create function tap_h.visibles(p_tabla text, p_rancho text) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  if p_tabla = 'rancho' then
+    execute 'select count(*) from public.rancho where id = $1' into n using tap_h.id(p_rancho);
+  elsif p_tabla = 'usuario' then
+    -- La persona representativa de ese rancho: admin_a / admin_b.
+    execute 'select count(*) from public.usuario where id = $1' into n using tap_h.id(case p_rancho when 'rancho_a' then 'admin_a' else 'admin_b' end);
+  else
+    execute format('select count(*) from public.%I where rancho_id = $1', p_tabla) into n using tap_h.id(p_rancho);
+  end if;
+  return n;
+end;
+$$;
+create function tap_h.total(p_tabla text) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  execute format('select count(*) from public.%I', p_tabla) into n;
+  return n;
+end;
+$$;
+
+-- SQLSTATE con el que falla una sentencia ('ok' si no falla). Deshace sus efectos.
+create function tap_h.sqlstate_de(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'ok';
+exception when others then
+  return sqlstate;
+end;
+$$;
+
+grant execute on all functions in schema tap_h to anon, authenticated;
+
+-- Registro de aplicar_cambios a partir de la fila actual, con cambios y updated_at más nuevo (+1 h).
+create function tap_h.mod(p_entidad text, p_id uuid, p_cambios jsonb default '{}') returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare fila jsonb;
+begin
+  execute format('select to_jsonb(t) from public.%I t where id = $1', p_entidad) into fila using p_id;
+  return jsonb_build_object('entidad', p_entidad,
+    'registro', fila || jsonb_build_object('updated_at', (fila ->> 'updated_at')::timestamptz + interval '1 hour') || p_cambios);
+end;
+$$;
+-- Igual, pero con el updated_at exacto que se indique.
+create function tap_h.mod_en(p_entidad text, p_id uuid, p_updated_at timestamptz, p_cambios jsonb default '{}') returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare fila jsonb;
+begin
+  execute format('select to_jsonb(t) from public.%I t where id = $1', p_entidad) into fila using p_id;
+  return jsonb_build_object('entidad', p_entidad, 'registro', fila || jsonb_build_object('updated_at', p_updated_at) || p_cambios);
+end;
+$$;
+-- Registro nuevo.
+create function tap_h.nuevo(p_entidad text, p_registro jsonb) returns jsonb language sql immutable as $$
+  select jsonb_build_object('entidad', p_entidad, 'registro',
+    jsonb_build_object('created_at', now(), 'updated_at', now(), 'eliminado', false) || p_registro)
+$$;
+-- Aplicación nueva con todas sus columnas (el cliente siempre manda la fila completa).
+create function tap_h.aplic(p_rancho uuid, p_usuario uuid, p_tabla_ids jsonb, p_producto text default 'x') returns jsonb language sql immutable as $$
+  select tap_h.nuevo('aplicacion', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', p_rancho, 'fecha', '2026-10-09', 'tabla_ids', p_tabla_ids,
+    'producto', p_producto, 'ingrediente_activo', '', 'grupo_frac', '', 'dosis', null, 'unidad', '', 'volumen_mezcla', null, 'metodo', '',
+    'usuario_id', p_usuario, 'responsable', '', 'observaciones', ''))
+$$;
+create function tap_h.resultado(p_respuesta jsonb, p_i integer) returns text language sql immutable as $$
+  select p_respuesta -> p_i ->> 'resultado'
+$$;
+create function tap_h.motivo(p_respuesta jsonb, p_i integer) returns text language sql immutable as $$
+  select p_respuesta -> p_i ->> 'motivo'
+$$;
+grant execute on all functions in schema tap_h to anon, authenticated;
+
+-- "nuevo_sin_perfil": cuenta de auth sin fila en usuario.
+insert into tap_h.ids values ('sin_perfil', 'd1000000-0000-0000-0000-000000000001');
+insert into auth.users (id, instance_id, aud, role, email) values (tap_h.id('sin_perfil'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sin_perfil@prueba.test');
+
+select tap_h.como('solo');
+create temp table nuevo as select public.crear_rancho('  Rancho C  ', 18.9, -103.9) as id;
+grant select on nuevo to public;
+select ok((select id from nuevo) is not null, 'crear_rancho devuelve el id');
+reset role;
+select is((select nombre from public.rancho where id = (select id from nuevo)), 'Rancho C', 'el rancho se creó con el nombre recortado');
+select is((select lat from public.rancho where id = (select id from nuevo)), 18.9::double precision, 'con su latitud');
+select is((select ii_umbral_medio from public.rancho where id = (select id from nuevo)), 20::numeric, 'y los umbrales por defecto (medio 20)');
+select is((select ii_umbral_alto from public.rancho where id = (select id from nuevo)), 30::numeric, '(alto 30)');
+select is((select dias_alerta_aplicacion from public.rancho where id = (select id from nuevo)), 14, '(14 días de alerta)');
+select is(
+  (select rol from public.membresia where rancho_id = (select id from nuevo) and usuario_id = tap_h.id('solo') and activo and not eliminado),
+  'administrador', 'quien lo crea queda como administrador activo');
+select is((select count(*) from public.membresia where rancho_id = (select id from nuevo)), 1::bigint, 'y es la única membresía');
+
+-- Ya puede leer su rancho y escribir en él por aplicar_cambios.
+select tap_h.como('solo');
+select is((select count(*) from public.rancho where id = (select id from nuevo)), 1::bigint, 'el nuevo administrador ve su rancho');
+select is(tap_h.resultado(public.aplicar_cambios(jsonb_build_array(
+    tap_h.nuevo('tabla', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', (select id from nuevo), 'codigo', '1', 'nombre', 'T1', 'variedad', '', 'activa', true, 'origen', 'manual')))), 0),
+  'aplicado', 'y puede crear tablas en él');
+reset role;
+
+-- Sin perfil: error claro.
+select tap_h.como('sin_perfil');
+select throws_ok($$select public.crear_rancho('Sin perfil')$$, 'P0001', 'Tu usuario todavía no tiene perfil. Termina de registrarte e inténtalo de nuevo.', 'sin fila en usuario: error claro');
+reset role;
+select is((select count(*) from public.rancho), 3::bigint, 'y no se creó ningún rancho (2 de la preparación + el de arriba)');
+
+-- Nombre vacío
+select tap_h.como('op1');
+select throws_ok($$select public.crear_rancho('   ')$$, 'P0001', 'Escribe el nombre del rancho.', 'nombre vacío: error claro');
+reset role;
+
+-- Si falla a la mitad, no queda el rancho sin membresía: la función es atómica.
+select is((select count(*) from public.rancho r where not exists (select 1 from public.membresia m where m.rancho_id = r.id)), 0::bigint, 'ningún rancho quedó sin membresía');
+
+select * from finish();
+rollback;
