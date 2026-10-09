@@ -2,8 +2,9 @@ import { alEscribir } from '../cola'
 import type { Rechazo, SigatokaDB } from '../db'
 import { descargarTodo } from './descarga'
 import { enviarTodo, TAMANO_LOTE } from './envio'
+import { borrarDatosDelRancho } from './desactivacion'
 import { descartarRechazo, reintentarEnvio } from './rechazos'
-import type { Servidor } from './servidor'
+import { SesionVencida, type MembresiaEstado, type Servidor } from './servidor'
 
 /** Espera entre reintentos tras un fallo del envío o de la descarga: 5 s, 15 s, 1 min, 5 min y de ahí en adelante 5 min. */
 export const ESPERAS_MS: readonly number[] = [5_000, 15_000, 60_000, 300_000]
@@ -28,6 +29,12 @@ export interface EstadoSincronizacion {
   avisos: readonly string[]
   /** Hora (ms) antes de la cual los disparadores automáticos no reintentan. */
   noAntesDe: number
+  /** La sesión venció o fue revocada: se pide volver a entrar (los datos locales siguen intactos). */
+  sesionVencida: boolean
+  /** El servidor informó que el acceso a todos los ranchos de esta cuenta fue desactivado: se detuvo la sincronización. */
+  desactivado: boolean
+  /** Membresías de la cuenta según el servidor (con las inactivas); null hasta la primera respuesta. */
+  membresias: readonly MembresiaEstado[] | null
 }
 
 export interface OpcionesMotor {
@@ -65,6 +72,9 @@ export function crearMotor(o: OpcionesMotor) {
     ultimoError: null,
     avisos: [],
     noAntesDe: 0,
+    sesionVencida: false,
+    desactivado: false,
+    membresias: null,
   }
   const oyentes = new Set<() => void>()
   let enCurso: Promise<void> | null = null
@@ -83,6 +93,14 @@ export function crearMotor(o: OpcionesMotor) {
 
   async function ciclo(): Promise<void> {
     const servidor = o.servidor as Servidor
+    // Lo primero: ¿sigue activo el acceso? Si lo desactivaron, no se envía nada y se borran los datos locales de ese rancho.
+    const membresias = await servidor.miEstado()
+    cambiar({ membresias })
+    for (const m of membresias.filter((x) => !x.activo)) await borrarDatosDelRancho(o.db, m.rancho_id)
+    if (membresias.length > 0 && membresias.every((m) => !m.activo)) {
+      cambiar({ desactivado: true, ultimoError: null })
+      return
+    }
     await enviarTodo(o.db, servidor, o.tamanoLote ?? TAMANO_LOTE)
     const d = await descargarTodo(o.db, servidor, ahora)
     const iso = new Date(ahora()).toISOString()
@@ -94,7 +112,7 @@ export function crearMotor(o: OpcionesMotor) {
 
   function sincronizar(opciones: OpcionesSincronizar = {}): Promise<void> {
     // Sin sesión no hay servidor: no se hace ninguna llamada.
-    if (!o.servidor) return Promise.resolve()
+    if (!o.servidor || estado.desactivado || estado.sesionVencida) return Promise.resolve()
     // Nunca dos a la vez: quien llega mientras se sincroniza espera la misma.
     if (enCurso) return enCurso
     if (!opciones.ignorarEspera && ahora() < estado.noAntesDe) return Promise.resolve()
@@ -105,6 +123,11 @@ export function crearMotor(o: OpcionesMotor) {
     cambiar({ sincronizando: true })
     enCurso = ciclo()
       .catch((e: unknown) => {
+        if (e instanceof SesionVencida) {
+          // Sin sesión no tiene caso reintentar: se pide volver a entrar. No se borra nada.
+          cambiar({ sesionVencida: true, ultimoError: e.message })
+          return
+        }
         fallosSeguidos++
         const espera = esperaTrasFallo(fallosSeguidos)
         const mensaje = e instanceof Error ? e.message : 'Error desconocido.'

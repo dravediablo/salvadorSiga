@@ -14,10 +14,26 @@ const PIMIENTA = Deno.env.get('PIMIENTA') ?? ''
 const sinSesion = { auth: { persistSession: false, autoRefreshToken: false } }
 const admin = createClient(URL_SUPABASE, SERVICE_ROLE, sinSesion)
 
-/** Mismo trabajo (HMAC + una llamada a Auth) que un intento real, para que "no existe" y "PIN incorrecto" tarden parecido. */
+const CORREO_SENUELO = correoSintetico('00000000-0000-4000-8000-0000000000aa')
+let senuelo: Promise<void> | null = null
+
+/**
+ * Una cuenta señuelo (sin acceso: su contraseña es aleatoria y nadie la conoce). Autenticarse contra una cuenta que existe
+ * cuesta lo mismo que un PIN incorrecto real (la comparación de la contraseña con bcrypt); contra una que no existe, casi nada.
+ */
+function asegurarSenuelo(): Promise<void> {
+  senuelo ??= admin.auth.admin
+    .createUser({ email: CORREO_SENUELO, password: crypto.randomUUID() + crypto.randomUUID(), email_confirm: true })
+    .then(() => undefined, () => undefined) // si ya existe, bien
+  return senuelo
+}
+
+/** Mismo trabajo (HMAC + una llamada a Auth con bcrypt + la escritura de un intento fallido) que un intento real, para que "no existe" y "PIN incorrecto" tarden parecido. */
 async function intentoFalso(): Promise<Response> {
+  await asegurarSenuelo()
   const anon = createClient(URL_SUPABASE, ANON, sinSesion)
-  await anon.auth.signInWithPassword({ email: correoSintetico('00000000-0000-4000-8000-000000000000'), password: await contrasenaDerivada(PIMIENTA, 'sin-cuenta', '000000') })
+  await anon.auth.signInWithPassword({ email: CORREO_SENUELO, password: await contrasenaDerivada(PIMIENTA, 'sin-cuenta', '000000') })
+  await admin.rpc('registrar_intento_fallido_operador', { p_usuario_id: '00000000-0000-4000-8000-000000000000' })
   return error(ERROR_GENERICO, 401)
 }
 
@@ -47,7 +63,7 @@ Deno.serve(async (req) => {
   const usuarioId = cuenta.usuario_id as string
   const anon = createClient(URL_SUPABASE, ANON, sinSesion)
   const { data: sesion, error: errorAuth } = await anon.auth.signInWithPassword({
-    email: (await admin.auth.admin.getUserById(usuarioId)).data.user?.email ?? correoSintetico(usuarioId),
+    email: correoSintetico(usuarioId),
     password: await contrasenaDerivada(PIMIENTA, usuarioId, pin),
   })
 

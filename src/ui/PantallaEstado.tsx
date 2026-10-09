@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useConexion } from '@/pwa/conexion'
 import { useInstalacion } from '@/pwa/instalacion'
 import { estaPersistente, leerRegistros, solicitarPersistencia, type RegistroPersistencia } from '@/pwa/persistencia'
-import { AccesoDesarrollo } from './AccesoDesarrollo'
+import { CuentaSesion } from './CuentaSesion'
 import { PanelInstalacion } from './PanelInstalacion'
 import { Rechazos } from './Rechazos'
 
@@ -68,7 +68,7 @@ export function PantallaEstado() {
           Solicitar almacenamiento persistente
         </button>
       </section>
-      <AccesoDesarrollo />
+      <CuentaSesion />
       <footer className="pie peq muted">
         Versión de la compilación: <span className="num">{__VERSION_COMPILACION__}</span>
       </footer>

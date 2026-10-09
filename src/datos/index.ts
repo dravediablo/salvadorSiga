@@ -1,7 +1,9 @@
+import Dexie from 'dexie'
 import { crearAjustes } from './ajustes'
 import { crearConsultas } from './consultas'
 import { SigatokaDB } from './db'
 import { crearRepoPlantas } from './repos/plantas'
+import { leerSubidaRegistrada, subidaConfirmada, subirDatosLocales as subirALaCuenta } from './repos/migracion'
 import { crearRepoRancho } from './repos/rancho'
 import { crearRepoRecorridos } from './repos/recorridos'
 import { crearRepoTablas } from './repos/tablas'
@@ -34,10 +36,27 @@ export const repos = {
 export const consultas = crearConsultas(db)
 export const ajustes = crearAjustes(db)
 export const sesion = crearSesion(db, usuarioServidorId)
+/** Sube los datos de la etapa sin servidor (base `sigatoka`) al rancho de esta cuenta. */
+export const subirDatosLocales = (p: { ranchoId: string; usuarioId: string; incluirRecorridos: boolean }) => subirALaCuenta(db, p)
+export const subidaDeEstaCuentaConfirmada = () => subidaConfirmada(db)
+export const subidaRegistradaDeEstaCuenta = () => leerSubidaRegistrada(db)
+/** Para leer ids de la sesión en pantallas: la persona con sesión (null si no la hay). */
+export const idUsuarioConSesion: string | null = usuarioServidorId
+
+/**
+ * "Cerrar sesión y borrar los datos de este celular": borra la base local de ESTA cuenta. Solo si no hay pendientes ni rechazos
+ * (si los hubiera se perderían); si los hay, lanza.
+ */
+export async function borrarDatosDeEsteCelular(): Promise<void> {
+  if ((await db.cola.count()) > 0 || (await db.rechazos.count()) > 0) throw new Error('Hay cambios sin enviar o rechazados: no se pueden borrar los datos de este celular.')
+  db.close()
+  await Dexie.delete(db.name)
+}
 
 /** El cliente se crea la primera vez que se necesita (la biblioteca no se carga sin sesión). */
 const servidor: Servidor | null = usuarioServidorId
   ? {
+      miEstado: async () => servidorSupabase(await clienteSupabase()).miEstado(),
       aplicarCambios: async (lote) => servidorSupabase(await clienteSupabase()).aplicarCambios(lote),
       descargar: async (e, d, o, l) => servidorSupabase(await clienteSupabase()).descargar(e, d, o, l),
       traerRegistro: async (e, id) => servidorSupabase(await clienteSupabase()).traerRegistro(e, id),
@@ -49,8 +68,13 @@ export const modoServidor: boolean = servidor !== null
 if (servidor) iniciarDisparadores(motor)
 
 export { leerPoligonos } from './importarKmz'
+export { borrarBaseAntigua, hayBaseAntigua, resumenBaseAntigua, subidaConfirmada, type ResumenBaseAntigua } from './repos/migracion'
 export { supabaseConfigurado } from './supabase/cliente'
-export { cerrarSesionDesarrollo, correoDeSesionGuardada, iniciarSesionDesarrollo } from './supabase/autenticacion'
+export { cerrarSesion, correoDeSesionGuardada, crearMiRancho, entrarComoOperador, entrarComoPropietario, registrarPropietario } from './supabase/autenticacion'
+export {
+  crearOperador, desactivarOperador, enlaceWhatsApp, listarCuentasOperador, reactivarOperador, renombrarOperador, restablecerPin, textoCredenciales,
+  type Credencial, type CuentaOperador,
+} from './supabase/operadores'
 export type { EstadoSincronizacion } from './sincronizacion/motor'
 export type { Rechazo } from './db'
 export { alDescartar, claveHojaGrado, clavePlantaTh, claveTablaCampo, enSegundoPlano, fallosPendientes, gruposDeCambioPlanta, mensajeDeError, hayFallos, reintentar, suscribirFallos, type Fallo } from './fallos'

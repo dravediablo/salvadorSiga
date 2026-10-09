@@ -22,7 +22,24 @@ export interface ResultadoItem {
   motivo: string | null
 }
 
+/** Una membresía de quien sincroniza, incluidas las inactivas (`mi_estado()` del servidor). */
+export interface MembresiaEstado {
+  rancho_id: string
+  rol: 'operador' | 'administrador'
+  activo: boolean
+}
+
+/** La sesión caducó o fue revocada y no se pudo renovar: hay que volver a entrar. Los datos locales no se tocan. */
+export class SesionVencida extends Error {
+  constructor() {
+    super('La sesión venció. Vuelve a entrar.')
+    this.name = 'SesionVencida'
+  }
+}
+
 export interface Servidor {
+  /** Llama a `mi_estado()`: las membresías de la persona, también las inactivas. Se pide al empezar cada ciclo. */
+  miEstado(): Promise<MembresiaEstado[]>
   /** Llama a `aplicar_cambios`. Lanza si falla la llamada (red, servidor, sesión): ahí nada se da por enviado. */
   aplicarCambios(lote: ItemLote[]): Promise<ResultadoItem[]>
   /**

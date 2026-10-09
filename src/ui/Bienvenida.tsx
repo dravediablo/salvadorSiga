@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { leerPoligonos, repos } from '@/datos'
-import { AccesoDesarrollo } from './AccesoDesarrollo'
 
 /** Configuración inicial del rancho en este dispositivo: nombre y KMZ con las tablas. */
 export function Bienvenida() {
@@ -53,7 +52,6 @@ export function Bienvenida() {
         {!nombre.trim() && <p className="peq muted">Escribe primero el nombre del rancho.</p>}
       </div>
       <p className="peq muted">Se crean tres usuarios de prueba: Propietario (administrador), Operador 1 y Operador 2. Esto se reemplaza por inicio de sesión real más adelante.</p>
-      <AccesoDesarrollo />
     </div>
   )
 }

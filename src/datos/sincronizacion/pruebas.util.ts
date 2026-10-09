@@ -7,7 +7,7 @@ import { crearRepoRecorridos } from '../repos/recorridos'
 import { crearRepoTablas } from '../repos/tablas'
 import { esperarEscrituras } from '../cola'
 import { ENTIDAD_SERVIDOR } from './entidades'
-import type { ItemLote, LlavePagina, ResultadoItem, Servidor } from './servidor'
+import type { ItemLote, LlavePagina, MembresiaEstado, ResultadoItem, Servidor } from './servidor'
 
 /** Utilidades compartidas por las pruebas de sincronización (unitarias y de integración). */
 
@@ -68,17 +68,22 @@ export function compararMarcas(a: string, b: string): number {
  * Servidor de mentira: guarda filas por tabla, aplica "gana la más reciente" y devuelve resultados.
  * `rechazar` decide qué registros rechaza. Todas las llamadas quedan en `llamadas`.
  */
-export function servidorFalso(opciones: { rechazar?: (item: ItemLote) => string | null; alAplicar?: (lote: ItemLote[]) => Promise<void> | void; alDescargar?: (llamada: { entidad: string; despuesDe: LlavePagina | null }) => Promise<void> | void } = {}) {
+export function servidorFalso(opciones: { rechazar?: (item: ItemLote) => string | null; alAplicar?: (lote: ItemLote[]) => Promise<void> | void; alDescargar?: (llamada: { entidad: string; despuesDe: LlavePagina | null }) => Promise<void> | void; membresias?: MembresiaEstado[] } = {}) {
   const tablas = new Map<string, Map<string, Fila>>()
-  const llamadas: Array<{ tipo: 'aplicar' | 'descargar' | 'traer'; detalle: unknown }> = []
+  const llamadas: Array<{ tipo: 'aplicar' | 'descargar' | 'traer' | 'estado'; detalle: unknown }> = []
   let reloj = Date.parse('2026-10-09T12:00:00.000Z')
   const tabla = (nombre: string) => {
     if (!tablas.has(nombre)) tablas.set(nombre, new Map())
     return tablas.get(nombre) as Map<string, Fila>
   }
-  const servidor: Servidor & { tablas: typeof tablas; llamadas: typeof llamadas; poner(entidad: string, fila: Fila, serverUpdatedAt?: string): void } = {
+  const servidor: Servidor & { tablas: typeof tablas; llamadas: typeof llamadas; poner(entidad: string, fila: Fila, serverUpdatedAt?: string): void; membresias: MembresiaEstado[] } = {
     tablas,
     llamadas,
+    membresias: opciones.membresias ?? [],
+    async miEstado() {
+      llamadas.push({ tipo: 'estado', detalle: null })
+      return servidor.membresias
+    },
     poner(entidad, fila, serverUpdatedAt) {
       reloj += 1000
       tabla(entidad).set(String(fila.id), { ...fila, server_updated_at: serverUpdatedAt ?? new Date(reloj).toISOString().replace('Z', '000+00:00') })

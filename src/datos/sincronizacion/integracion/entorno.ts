@@ -4,6 +4,7 @@ import type { Database } from '../../supabase/tipos.gen'
 import { servidorSupabase } from '../../supabase/servidor'
 import { crearMotor } from '../motor'
 import { nuevaBase } from '../pruebas.util'
+import type { SigatokaDB } from '../../db'
 import { crearRepoPlantas } from '../../repos/plantas'
 import { crearRepoRecorridos } from '../../repos/recorridos'
 import type { Servidor } from '../servidor'
@@ -20,11 +21,13 @@ export const USUARIOS = {
 export const TABLAS = ['d3000000-0000-4000-8000-000000000001', 'd3000000-0000-4000-8000-000000000002', 'd3000000-0000-4000-8000-000000000003']
 const CONTENEDOR_DB = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_salvador'
 
-function estadoSupabase(): { API_URL: string; ANON_KEY: string } {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) return { API_URL: process.env.SUPABASE_URL, ANON_KEY: process.env.SUPABASE_ANON_KEY }
+export function estadoSupabase(): { API_URL: string; ANON_KEY: string; SERVICE_ROLE_KEY: string } {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { API_URL: process.env.SUPABASE_URL, ANON_KEY: process.env.SUPABASE_ANON_KEY, SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY }
+  }
   try {
     const salida = execFileSync('supabase', ['status', '-o', 'json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-    return JSON.parse(salida) as { API_URL: string; ANON_KEY: string }
+    return JSON.parse(salida) as { API_URL: string; ANON_KEY: string; SERVICE_ROLE_KEY: string }
   } catch {
     throw new Error('No se pudo leer `supabase status`. Levanta el servidor local con `supabase start` (y `supabase db reset` para cargar la semilla).')
   }
@@ -60,10 +63,34 @@ export async function clienteDe(persona: Persona): Promise<SupabaseClient<Databa
   return cliente
 }
 
+/** Cliente de Supabase sin sesión guardada (como un navegador nuevo). */
+export function clienteNuevo(): SupabaseClient<Database> {
+  const { API_URL, ANON_KEY } = estadoSupabase()
+  return createClient<Database>(API_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+/** Cliente con la llave service_role: SOLO para preparar y revisar cosas en las pruebas (la app nunca la usa). */
+export function clienteServicio(): SupabaseClient<Database> {
+  const { API_URL, SERVICE_ROLE_KEY } = estadoSupabase()
+  return createClient<Database>(API_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+/** Llama a una función del servidor como lo hace la app (fetch con la llave pública y, si hay, el token). */
+export async function llamarFuncion(nombre: string, cuerpo: object, token?: string): Promise<{ estado: number; cuerpo: Record<string, unknown>; ms: number }> {
+  const { API_URL, ANON_KEY } = estadoSupabase()
+  const inicio = performance.now()
+  const r = await fetch(`${API_URL}/functions/v1/${nombre}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: ANON_KEY, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(cuerpo),
+  })
+  return { estado: r.status, cuerpo: (await r.json().catch(() => ({}))) as Record<string, unknown>, ms: performance.now() - inicio }
+}
+
 /** Un dispositivo simulado: su propia base Dexie, su sesión y su motor de sincronización. */
-export async function dispositivo(persona: Persona, envolver: (s: Servidor) => Servidor = (s) => s) {
-  const db = nuevaBase()
-  const servidor = envolver(servidorSupabase(await clienteDe(persona)))
+export async function dispositivoConCliente(cliente: SupabaseClient<Database>, usuarioId: string, opciones: { db?: SigatokaDB; envolver?: (s: Servidor) => Servidor } = {}) {
+  const db = opciones.db ?? nuevaBase()
+  const servidor = (opciones.envolver ?? ((x: Servidor) => x))(servidorSupabase(cliente))
   const llamadasAplicar: number[] = []
   const contado: Servidor = {
     ...servidor,
@@ -74,8 +101,8 @@ export async function dispositivo(persona: Persona, envolver: (s: Servidor) => S
   }
   const motor = crearMotor({ db, servidor: contado, enLinea: () => true, programar: () => () => undefined })
   return {
-    persona,
-    usuarioId: USUARIOS[persona].id,
+    usuarioId,
+    cliente,
     db,
     motor,
     llamadasAplicar,
@@ -85,9 +112,14 @@ export async function dispositivo(persona: Persona, envolver: (s: Servidor) => S
     async sincronizar(): Promise<void> {
       await motor.sincronizar({ ignorarEspera: true })
       const { ultimoError } = motor.obtenerEstado()
-      if (ultimoError) throw new Error(`La sincronización de ${persona} falló: ${ultimoError}`)
+      if (ultimoError) throw new Error(`La sincronización de ${usuarioId} falló: ${ultimoError}`)
     },
   }
+}
+
+export async function dispositivo(persona: Persona, envolver: (s: Servidor) => Servidor = (s) => s) {
+  const d = await dispositivoConCliente(await clienteDe(persona), USUARIOS[persona].id, { envolver })
+  return { ...d, persona }
 }
 export type Dispositivo = Awaited<ReturnType<typeof dispositivo>>
 

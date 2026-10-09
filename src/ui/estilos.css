@@ -199,3 +199,10 @@ table.datos tr.clic:hover td{background:var(--surface)}
 .aviso-fallo .btn{flex:none}
 .aviso-ios{border-radius:0;margin:0;font-weight:700}
 .sin-conexion-detalle b{font-weight:700}
+.pestanas{display:flex;gap:6px;margin:14px 0}
+.pestanas button{flex:1;min-height:52px;border:2px solid var(--line);border-radius:12px;background:var(--bg);font-weight:700;cursor:pointer;color:var(--ink-2)}
+.pestanas button.activo{border-color:var(--leaf);color:var(--ink);background:var(--surface)}
+.lista-operadores{list-style:none;padding:0;margin:12px 0}
+.lista-operadores li{margin:10px 0}
+.credenciales{background:var(--surface);border-radius:12px;padding:12px 14px;margin:12px 0;font-size:1.15rem}
+.credenciales .pin{font-size:2rem;font-weight:700;letter-spacing:.2em}

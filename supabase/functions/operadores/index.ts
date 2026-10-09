@@ -71,7 +71,8 @@ async function crear(ranchoId: string, nombreCrudo: unknown): Promise<Response> 
     await admin.auth.admin.deleteUser(usuarioId)
   }
 
-  const clave = await admin.auth.admin.updateUserById(usuarioId, { password: await contrasenaDerivada(PIMIENTA, usuarioId, pin) })
+  // El correo pasa a ser op-<id de usuario>@…: así entrar_operador lo calcula sin consultar a Auth.
+  const clave = await admin.auth.admin.updateUserById(usuarioId, { email: correoSintetico(usuarioId), email_confirm: true, password: await contrasenaDerivada(PIMIENTA, usuarioId, pin) })
   if (clave.error) {
     await deshacer()
     return error('No se pudo crear la cuenta del operador. Inténtalo de nuevo.', 500)
