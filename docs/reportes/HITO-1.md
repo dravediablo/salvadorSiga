@@ -2,7 +2,7 @@
 
 Rama: `hito-1-base-pwa-dominio` (3 commits, sin subir a ningún remoto). Fecha: 2026-10-09.
 
-**Estado: parcial.** El código, las pruebas y la compilación están terminados y pasan. Quedan pendientes los pasos que requieren una cuenta de Vercel, un remoto de Git y celulares reales; ver "Criterios de aceptación" y "Dudas o riesgos abiertos".
+**Estado: parcial.** El código, las pruebas, la compilación y el despliegue están terminados. Quedan pendientes las pruebas en celulares reales; ver "Criterios de aceptación" y "Dudas o riesgos abiertos".
 
 ## 1. Resumen
 
@@ -12,7 +12,7 @@ Rama: `hito-1-base-pwa-dominio` (3 commits, sin subir a ningún remoto). Fecha: 
 - La regla del promedio de HMJ vive en una sola función, `resumenSintoma`, con el parámetro `estrategia` (único valor: `'excluir_no_presenta'`).
 - 77 pruebas, incluidos todos los casos de la tarea 4. Se ejecutan con `TZ=America/Mexico_City` y con `TZ=UTC`. Cobertura de `src/dominio`: 99,6 % de líneas.
 - Cascarón PWA: manifest, íconos provisionales, service worker con `registerType: 'prompt'`, pantalla de inicio con estado, instalación (Android, iPhone en Safari y en otro navegador), aviso de actualización y solicitud de almacenamiento persistente con registro.
-- `vercel.json` con reescritura de rutas y encabezados de caché. **No se desplegó.**
+- `vercel.json` con reescritura de rutas y encabezados de caché. Desplegado en Vercel: producción `https://salvadorsiga.vercel.app`, desde `main`.
 
 ## 2. Criterios de aceptación
 
@@ -33,7 +33,8 @@ Rama: `hito-1-base-pwa-dominio` (3 commits, sin subir a ningún remoto). Fecha: 
 
 **PWA**
 
-- [ ] **Lighthouse sin errores en la URL de Vercel: no cumplido.** No hay despliegue. Lo que sí se verificó contra `vite preview`: el manifest se sirve como `application/manifest+json` con los íconos de 192, 512 y 512 maskable; `sw.js` y `apple-touch-icon.png` responden 200; cualquier ruta devuelve `index.html`; el precache tiene 25 entradas (374 KiB), incluidas las fuentes.
+- [~] **Lighthouse sobre `https://salvadorsiga.vercel.app` (producción, desplegada desde `main`).** Lighthouse 13.5.0 ya no incluye la sección PWA ni auditorías de instalación, así que el criterio tal como está escrito no se puede cumplir con esa herramienta; la instalación queda a cargo de las pruebas en celulares. Resultado de la primera corrida: rendimiento 99, accesibilidad 95, buenas prácticas 100, SEO 82. Fallos que importaban y se corrigieron: contraste 4,28:1 en la etiqueta verde "Sí" (ahora usa `--leaf`) y falta de meta descripción. Los otros fallos son `robots.txt`, `llms.txt` y `ard-schema`, sin relevancia para el piloto. El reporte completo está en el scratchpad de la sesión (`lh.report.html`); falta repetir la corrida tras el arreglo.
+- [x] Verificado contra producción con `curl -I`: `sw.js`, `index.html` y `manifest.webmanifest` con `Cache-Control: no-cache`; `/assets/*` con `public, max-age=31536000, immutable`; `/` con `max-age=0, must-revalidate`; una ruta inexistente devuelve `index.html`; el manifest sale como `application/manifest+json`.
 
 **Pruebas en celulares reales: ninguna realizada** (no tengo acceso a dispositivos). Falta registrar fecha, modelo y versión del sistema de cada una:
 
@@ -79,7 +80,7 @@ Rama: `hito-1-base-pwa-dominio` (3 commits, sin subir a ningún remoto). Fecha: 
 
 - `HITO-1.md` y `prototipo.html` estaban en la raíz, no en `docs/hitos/` ni `referencia/`. Se copiaron a esas rutas. **Las copias de la raíz siguen ahí** (están en `.gitignore`); conviene borrarlas.
 - `Tablas/Tablas El Salvador.kmz` (geometría real de los lotes) está en la raíz y **no se incluyó en el repositorio**: es información del productor y se usa en el hito 6. Decide si debe versionarse.
-- No se creó el proyecto en Vercel ni se conectó un repositorio remoto (ver sección 7).
+- El proyecto de Vercel venía con otro preset y hubo que cambiarlo a Vite (Settings → Build & Development) para que el push de `main` lo desplegara. El repositorio remoto es privado: `github.com/dravediablo/salvadorSiga`.
 - `vite-plugin-pwa` 2.0 y Vite 8 son versiones muy recientes; no hubo incompatibilidades, pero conviene tenerlo presente si algo falla en un dispositivo.
 - Los íconos son provisionales (hoja verde sobre fondo claro), como pide el hito; se revisaron como PNG, no en un celular.
 
@@ -223,9 +224,7 @@ Lines        : 99.6% ( 251/252 )
 
 ## 7. Dudas o riesgos abiertos
 
-- **Despliegue pendiente.** Falta un repositorio remoto y un proyecto de Vercel conectado a él (producción desde `main`, vista previa por rama). Sin la URL no se puede correr Lighthouse ni probar la instalación en celulares. El hito exige ambos antes de la aprobación.
 - **Pruebas en dispositivos pendientes** (lista en la sección 2). El mayor riesgo del piloto sigue sin validarse: instalación desde un enlace y apertura sin conexión en Android y iPhone.
-- **Reglas de caché sin probar en Vercel.** `sw.js`, `index.html` y `manifest.webmanifest` salen con `no-cache`, y `/assets/*` con caché larga e inmutable. Hay que confirmarlo con `curl -I` sobre la URL real.
 - **Detección de navegador en iPhone** por `userAgent` (CriOS, FxiOS, etc.): puede fallar con navegadores poco comunes, que caerían en "abre el enlace en Safari" o en las instrucciones de Safari.
 - **Persistencia en Safari:** `navigator.storage.persist()` puede responder "rechazada" en iOS aunque los datos se conserven; hay que interpretarlo con los resultados de los celulares reales.
 - **Decisiones pendientes de `CLAUDE.md` sin tocar:** promedio de HMJ (hay una sola función para cambiarlo), umbrales definitivos del semáforo, preaviso biológico y texto de privacidad. Los umbrales 20/30 de `nuevoRancho` son provisionales.
