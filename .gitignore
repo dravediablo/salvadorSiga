@@ -9,3 +9,5 @@ coverage
 datos-locales/
 test-results
 playwright-report
+# handoffs para el supervisor (CLAUDE.md): se generan por hito
+docs/handoff/

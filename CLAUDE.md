@@ -105,12 +105,12 @@ referencia/
 ### Funcionamiento sin conexión (local-first)
 
 1. Toda escritura va primero a IndexedDB; la interfaz nunca espera al servidor para guardar.
-2. Cada cambio entra en una cola de pendientes, que se envía en lotes cuando hay conexión (hito 4).
+2. Cada cambio entra en una cola de pendientes, que se envía en lotes cuando hay conexión (hito 4). La cola guarda **una entrada por registro** (llave `[entidad+registro_id]`), que se sobrescribe con el `updated_at` más reciente; se envía el estado actual del registro, no la lista de cambios.
 3. La descarga trae lo cambiado desde la última sincronización. El cursor es `server_updated_at`, que pone el servidor, porque el reloj de los celulares no es confiable.
 4. Conflictos: gana la versión con `updated_at` más reciente.
 5. Nada se borra físicamente: los registros llevan `eliminado = true`.
 6. Los IDs son UUID generados en el cliente (`crypto.randomUUID()`).
-7. Todo registro lleva `created_at`, `updated_at` (cliente) y `server_updated_at` (servidor; vacío hasta sincronizar).
+7. Todo registro lleva `created_at`, `updated_at` (cliente) y `server_updated_at` (servidor; vacío hasta sincronizar). El `updated_at` de un dispositivo nunca retrocede: si el reloj da una hora igual o anterior a la última emitida, se usa la última más 1 ms.
 8. Guardado automático continuo: cerrar la app nunca pierde datos.
 
 ### Varios ranchos
@@ -141,6 +141,17 @@ Además, todas las entidades llevan `id` (UUID), `created_at`, `updated_at`, `se
    - Así, cambiar las tablas de una aplicación es una sola escritura y la regla de "gana la más reciente" se aplica completa. Con una tabla intermedia, dos celulares editando la misma aplicación podían dejar una mezcla de ambas versiones.
    - En Postgres: índice GIN sobre `tabla_ids`, y un trigger que rechace ids de tablas que no pertenezcan al mismo `rancho_id`.
 2. **Clima.** Restricción única `(rancho_id, fecha)`. Lo escribe el servidor (tarea diaria) con *upsert* sobre esa restricción; el cliente solo lo descarga. Si más adelante se permite importar CSV, también será *upsert* sobre `(rancho_id, fecha)`.
+
+### Importación de tablas
+
+- **Fuente:** KMZ/KML del rancho. Cada polígono es una tabla; el código sale del nombre ("Tabla 1. Sup. 6.8 ha." → `1`).
+- **Franjas "buffer".** El productor indicó omitirlas.
+  - Los polígonos cuyo nombre contenga "buffer" (sin importar mayúsculas) **no se importan**: el resumen de la importación los lista como omitidos y no se suman a la superficie de ninguna tabla.
+  - Las tablas buffer que ya existieran en la base local se marcan `eliminado = true`.
+- **Reimportar.** Si la tabla ya existe (mismo código):
+  - Se actualizan **solo** `geometria` y `nombre`; `superficie_ha` se conserva, porque puede estar corregida a mano.
+  - Si la superficie del polígono difiere más de 5 % de la guardada, el resumen lo muestra y deja aplicar la nueva por tabla.
+  - Nunca se borran tablas; las que no vengan en el archivo solo se pueden desactivar.
 
 ## PWA: instalación desde un enlace
 
@@ -223,13 +234,19 @@ Guarda el reporte en `docs/reportes/HITO-N.md` con estas secciones:
 
 ### Handoff para el supervisor (obligatorio)
 
-Cada vez que termines un hito, o te detengas porque falta algo, tu último mensaje debe ser **un solo bloque de código** listo para copiar con un botón y pegar al supervisor. No escribas nada después del bloque.
+Cada vez que termines un hito, o te detengas porque falta algo, prepara un handoff para el supervisor. El responsable no debe seleccionar ni copiar texto a mano.
 
-- **Formato del bloque.** Ábrelo y ciérralo con **cuatro** acentos graves y `text` (````` ````text `````), para que los bloques de código de adentro, con tres acentos, no lo corten.
-- **Contenido.** Debe bastar por sí solo: el supervisor no tiene acceso al repositorio.
-- **Archivos.** Incluye completos los que el hito pida revisar. Si alguno pasa de 300 líneas, incluye solo las partes relevantes e indica qué omitiste.
+1. **Escribe el archivo.** El handoff completo va en `docs/handoff/HITO-N.md`; agrega `docs/handoff/` a `.gitignore`.
+   - Debe bastar por sí solo, porque el supervisor no tiene acceso al repositorio.
+   - Incluye completos los archivos que el hito pida revisar. Si alguno pasa de 300 líneas, incluye solo las partes relevantes e indica qué omitiste.
+2. **Cópialo al portapapeles** con el comando de tu sistema y verifica que se copió completo (compara el número de caracteres):
+   - **macOS:** `pbcopy < docs/handoff/HITO-N.md`. Verifica con `pbpaste | wc -c`.
+   - **Windows (PowerShell):** `Get-Content -Raw -Encoding UTF8 docs/handoff/HITO-N.md | Set-Clipboard`. Evita `clip`, que daña los acentos.
+   - **Linux:** `wl-copy < …` (Wayland) o `xclip -selection clipboard < …` (X11).
+   - **WSL:** `powershell.exe -NoProfile -Command "Get-Content -Raw -Encoding UTF8 '<ruta de Windows>' | Set-Clipboard"`.
+3. **Tu último mensaje en la terminal** es solo una línea, por ejemplo: `Handoff del hito N copiado al portapapeles (N caracteres) y guardado en docs/handoff/HITO-N.md.` Si no pudiste copiarlo, dilo y da la ruta: el responsable arrastrará el archivo a la conversación con el supervisor.
 
-Plantilla:
+Plantilla del archivo:
 
 ````text
 HANDOFF — Hito N: <título>

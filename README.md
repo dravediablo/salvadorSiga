@@ -31,7 +31,7 @@ Antes de reportar un hito deben pasar `typecheck`, `lint`, `test`, `build` y, de
 - `src/dominio/`: lógica pura (tipos, fechas, cálculos, análisis, clima, geo). No importa React, Dexie, Supabase ni `datos`/`ui`/`pwa`.
 - `src/pwa/`: service worker, instalación, actualizaciones, persistencia del almacenamiento.
 - `src/ui/`: componentes de React.
-- `src/datos/`: Dexie (`db.ts`), cola de pendientes (`cola.ts`), repositorios (`repos/`), consultas, sesión simulada e importación de KMZ. La interfaz solo importa de `@/datos`.
+- `src/datos/`: Dexie (`db.ts`), cola de pendientes de una entrada por registro (`cola.ts`), generador de `updated_at` monótono (`reloj.ts`), escrituras fallidas en segundo plano (`fallos.ts`), repositorios (`repos/`), consultas, sesión simulada e importación de KMZ. La interfaz solo importa de `@/datos`.
 - `referencia/prototipo.html`: prototipo validado por el cliente (fuente de verdad de la interfaz y los cálculos).
 - `datos-locales/` (ignorada por Git): archivos reales de productores, como el KMZ del rancho. Nunca se versionan; las pruebas usan `src/**/__fixtures__/`.
 - `docs/hitos/` y `docs/reportes/`: instrucciones y reportes de cada hito.
