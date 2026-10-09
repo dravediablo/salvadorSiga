@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#F1F5EF"/>
+  <!-- hoja de plátano: lámina y nervadura central -->
+  <path d="M96 400 C 120 190 270 90 420 100 C 430 250 330 390 96 400 Z" fill="#1B6A38"/>
+  <path d="M96 400 C 200 300 300 210 400 120" fill="none" stroke="#F1F5EF" stroke-width="14" stroke-linecap="round"/>
+  <path d="M170 335 L 205 255 M 225 295 L 262 205 M 285 255 L 335 190" fill="none" stroke="#F1F5EF" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+</svg>
