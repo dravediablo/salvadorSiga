@@ -1,12 +1,15 @@
 import type { EvaluacionTabla, Hoja, Planta, PlantaConHojas, Rancho, Recorrido, Tabla, Usuario } from '@/dominio'
 import { contarPendientes } from './cola'
-import type { SigatokaDB } from './db'
+import type { Entidad, Rechazo, SigatokaDB } from './db'
+import { describirRegistro } from './sincronizacion/rechazos'
 
 const vivo = <T extends { eliminado: boolean }>(x: T | undefined): x is T => !!x && !x.eliminado
 
 export interface TarjetaRecorrido {
   recorrido: Recorrido
   operador: string
+  /** Cerrado y sin nada del recorrido (ni de sus tablas, plantas u hojas) en la cola ni en rechazos. */
+  sincronizado: boolean
   tablas: number
   plantas: number
 }
@@ -20,6 +23,7 @@ export interface EvaluacionConDatos {
 export interface DetalleRecorrido {
   recorrido: Recorrido
   operador: string
+  sincronizado: boolean
   evaluaciones: EvaluacionConDatos[]
 }
 
@@ -51,6 +55,22 @@ export function crearConsultas(db: SigatokaDB) {
     return salida
   }
 
+  /** ¿Ni el recorrido ni sus evaluaciones, plantas u hojas (incluidas las eliminadas) están en la cola o en rechazos? */
+  async function sinNadaPendiente(recorrido: Recorrido): Promise<boolean> {
+    const llaves: Array<[Entidad, string]> = [['recorridos', recorrido.id]]
+    const evs = await db.evaluaciones.where('recorrido_id').equals(recorrido.id).toArray()
+    for (const e of evs) {
+      llaves.push(['evaluaciones', e.id])
+      const ps = await db.plantas.where('evaluacion_tabla_id').equals(e.id).toArray()
+      for (const p of ps) {
+        llaves.push(['plantas', p.id])
+        for (const h of await db.hojas.where('planta_id').equals(p.id).toArray()) llaves.push(['hojas', h.id])
+      }
+    }
+    const [enCola, enRechazos] = await Promise.all([db.cola.bulkGet(llaves), db.rechazos.bulkGet(llaves)])
+    return enCola.every((x) => !x) && enRechazos.every((x) => !x)
+  }
+
   async function nombreUsuario(id: string): Promise<string> {
     return (await db.usuarios.get(id))?.nombre ?? 'Usuario'
   }
@@ -77,7 +97,13 @@ export function crearConsultas(db: SigatokaDB) {
         const evs = (await db.evaluaciones.where('recorrido_id').equals(recorrido.id).toArray()).filter(vivo)
         let plantas = 0
         for (const e of evs) plantas += (await db.plantas.where('evaluacion_tabla_id').equals(e.id).toArray()).filter(vivo).length
-        salida.push({ recorrido, operador: await nombreUsuario(recorrido.usuario_id), tablas: evs.length, plantas })
+        salida.push({
+          recorrido,
+          operador: await nombreUsuario(recorrido.usuario_id),
+          sincronizado: recorrido.estado === 'cerrado' && (await sinNadaPendiente(recorrido)),
+          tablas: evs.length,
+          plantas,
+        })
       }
       return salida
     },
@@ -90,7 +116,12 @@ export function crearConsultas(db: SigatokaDB) {
       for (const evaluacion of evs) {
         evaluaciones.push({ evaluacion, tabla: await db.tablas.get(evaluacion.tabla_id), plantas: await plantasConHojas(evaluacion.id) })
       }
-      return { recorrido, operador: await nombreUsuario(recorrido.usuario_id), evaluaciones }
+      return {
+        recorrido,
+        operador: await nombreUsuario(recorrido.usuario_id),
+        sincronizado: recorrido.estado === 'cerrado' && (await sinNadaPendiente(recorrido)),
+        evaluaciones,
+      }
     },
 
     async detalleTabla(evaluacionId: string): Promise<DetalleTabla | undefined> {
@@ -107,6 +138,13 @@ export function crearConsultas(db: SigatokaDB) {
       if (!base || !actual) return undefined
       return { ...base, planta: actual.planta, hojas: actual.hojas }
     },
+
+    /** Rechazos del servidor pendientes de revisar, con una descripción legible, del más reciente al más antiguo. */
+    async rechazos(): Promise<Array<{ rechazo: Rechazo; descripcion: string }>> {
+      const lista = (await db.rechazos.toArray()).sort((a, b) => b.fecha.localeCompare(a.fecha))
+      return Promise.all(lista.map(async (rechazo) => ({ rechazo, descripcion: await describirRegistro(db, rechazo.entidad, rechazo.registro_id) })))
+    },
+    contarRechazos: () => db.rechazos.count(),
 
     /** Registros distintos con cambios sin enviar. */
     pendientes: () => contarPendientes(db),

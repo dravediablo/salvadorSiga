@@ -14,6 +14,20 @@ export interface Pendiente {
   updated_at: string
 }
 
+/**
+ * Cambio local que el servidor rechazó: salió de la cola y espera a que la persona lo revise.
+ * El registro local NO se borra. Si el registro se vuelve a editar, entra otra vez a la cola y este rechazo se borra.
+ */
+export interface Rechazo {
+  entidad: Entidad
+  registro_id: string
+  /** `updated_at` del registro tal como se envió. */
+  updated_at: string
+  motivo: string
+  /** Cuándo lo rechazó el servidor (hora de este dispositivo). */
+  fecha: string
+}
+
 /** Ajuste donde las migraciones dejan un aviso para mostrar una sola vez. */
 export const CLAVE_AVISO_MIGRACION = 'aviso.migracion'
 
@@ -53,6 +67,7 @@ export class SigatokaDB extends Dexie {
   aplicaciones!: Table<Aplicacion, string>
   clima!: Table<ClimaDiario, string>
   cola!: Table<Pendiente, [Entidad, string]>
+  rechazos!: Table<Rechazo, [Entidad, string]>
   ajustes!: Table<Ajuste, string>
 
   constructor(nombre = 'sigatoka') {
@@ -126,6 +141,8 @@ export class SigatokaDB extends Dexie {
         })
       }
     })
+    // Versión 5: lista local de rechazos del servidor (hito 4).
+    this.version(5).stores({ rechazos: '[entidad+registro_id], fecha' })
   }
 }
 

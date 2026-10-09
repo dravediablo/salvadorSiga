@@ -17,12 +17,16 @@ export interface UsuarioActual {
   membresia: Membresia
 }
 
-export function crearSesion(db: SigatokaDB) {
+/**
+ * Con `usuarioServidorId` (hay sesión de Supabase) el usuario actual es esa persona y su rol sale de su
+ * membresía, descargada del servidor; no hay selector de usuarios simulados. Sin él, todo igual que antes.
+ */
+export function crearSesion(db: SigatokaDB, usuarioServidorId: string | null = null) {
   const ajustes = crearAjustes(db)
 
   /** Usuarios activos del rancho con su membresía (administradores primero, luego por nombre). */
   async function disponibles(): Promise<UsuarioActual[]> {
-    const membresias = (await db.membresias.toArray()).filter((m) => !m.eliminado && m.activo)
+    const membresias = (await db.membresias.toArray()).filter((m) => !m.eliminado && m.activo && (!usuarioServidorId || m.usuario_id === usuarioServidorId))
     const salida: UsuarioActual[] = []
     for (const m of membresias) {
       const u = await db.usuarios.get(m.usuario_id)
@@ -36,6 +40,7 @@ export function crearSesion(db: SigatokaDB) {
     /** Usuario simulado actual; si no hay uno elegido (o ya no existe), el primero disponible. */
     async actual(): Promise<UsuarioActual | null> {
       const lista = await disponibles()
+      if (usuarioServidorId) return lista[0] ?? null
       const id = await ajustes.leer<string>(CLAVE)
       return lista.find((x) => x.usuario.id === id) ?? lista[0] ?? null
     },

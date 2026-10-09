@@ -35,6 +35,8 @@ export async function guardar<T extends Registro>(db: SigatokaDB, entidad: Entid
   const nuevo: T = { ...registro, updated_at: t }
   await db.table(entidad).put(nuevo)
   await db.cola.put({ entidad, registro_id: nuevo.id, updated_at: t })
+  // Una edición nueva reemplaza al rechazo anterior: el cambio vuelve a la cola y se reenvía.
+  await db.rechazos.delete([entidad, nuevo.id])
   return nuevo
 }
 
@@ -46,7 +48,7 @@ export async function guardarVarios<T extends Registro>(db: SigatokaDB, entidad:
 
 /** Todas las tablas que puede tocar una escritura de repositorio, para abrir una sola transacción. */
 export function tablasDeEscritura(db: SigatokaDB) {
-  return [db.ranchos, db.usuarios, db.membresias, db.tablas, db.recorridos, db.evaluaciones, db.plantas, db.hojas, db.aplicaciones, db.clima, db.cola, db.ajustes]
+  return [db.ranchos, db.usuarios, db.membresias, db.tablas, db.recorridos, db.evaluaciones, db.plantas, db.hojas, db.aplicaciones, db.clima, db.cola, db.rechazos, db.ajustes]
 }
 
 /** Ejecuta `cuerpo` en una transacción de lectura y escritura, en orden con las demás escrituras. */
@@ -58,7 +60,23 @@ export function escribir<T>(db: SigatokaDB, cuerpo: () => Promise<T>): Promise<T
       await relojDe(db).persistir()
       return resultado
     }),
-  )
+  ).then((resultado) => {
+    // Ya confirmada la transacción: la sincronización se entera de que hay algo nuevo.
+    for (const oyente of oyentesEscritura.get(db) ?? []) oyente()
+    return resultado
+  })
+}
+
+const oyentesEscritura = new WeakMap<SigatokaDB, Set<() => void>>()
+
+/** Avisa después de cada escritura local confirmada (la sincronización arma con esto su espera de 5 s). */
+export function alEscribir(db: SigatokaDB, oyente: () => void): () => void {
+  const set = oyentesEscritura.get(db) ?? new Set<() => void>()
+  set.add(oyente)
+  oyentesEscritura.set(db, set)
+  return () => {
+    set.delete(oyente)
+  }
 }
 
 /** Registros con cambios sin enviar (la cola tiene una entrada por registro). */
@@ -66,7 +84,8 @@ export function contarPendientes(db: SigatokaDB): Promise<number> {
   return db.cola.count()
 }
 
-/** Entradas de la cola, de la más antigua a la más reciente. El hito 4 las envía. */
-export function listarPendientes(db: SigatokaDB): Promise<Pendiente[]> {
-  return db.cola.orderBy('updated_at').toArray()
+/** Entradas de la cola, de la más antigua a la más reciente (`limite`: solo las primeras). */
+export function listarPendientes(db: SigatokaDB, limite?: number): Promise<Pendiente[]> {
+  const consulta = db.cola.orderBy('updated_at')
+  return (limite === undefined ? consulta : consulta.limit(limite)).toArray()
 }

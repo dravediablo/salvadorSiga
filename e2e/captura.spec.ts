@@ -78,7 +78,8 @@ test('flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión),
 
   // 5. Sin conexión: la planta 4 completa y la 5 a medias.
   await context.setOffline(true)
-  await expect(page.getByRole('button', { name: /Sin señal/ })).toBeVisible()
+  // Sin sesión del servidor la app sigue en modo "solo este dispositivo" (con o sin señal).
+  await expect(page.getByRole('button', { name: /Solo en este dispositivo/ })).toBeVisible()
   await plantaCompleta(page, 'planta')
   await page.getByRole('button', { name: 'Guardar y nueva planta' }).click()
   await expect(page.getByText('Planta 5 de 5')).toBeVisible()
@@ -87,7 +88,7 @@ test('flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión),
   await page.getByRole('button', { name: /^Calificar las 5 hojas/ }).click()
   await calificar(page, [0, 1]) // faltan 3 hojas
   await expect(page.getByText('Hoja 3 de 5')).toBeVisible()
-  await expect(page.getByRole('button', { name: /\d+ sin enviar/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Solo en este dispositivo/ })).toBeVisible() // el conteo de pendientes se verifica al final, en la base
   await page.waitForTimeout(500) // deja que las escrituras en segundo plano terminen
 
   // 6. Recargar a mitad de la quinta planta (aún sin conexión): vuelve a esa planta con sus datos.

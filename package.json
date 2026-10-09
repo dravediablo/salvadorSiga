@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/verificar-dist.mjs",
     "preview": "vite preview",
     "test": "TZ=America/Mexico_City vitest run && TZ=UTC vitest run",
     "test:watch": "vitest",
@@ -16,10 +16,13 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
     "db:lint": "supabase db lint",
-    "db:tipos": "supabase gen types typescript --local > src/datos/supabase/tipos.gen.ts"
+    "db:tipos": "supabase gen types typescript --local > src/datos/supabase/tipos.gen.ts",
+    "test:dist": "node scripts/verificar-dist.mjs",
+    "test:integracion": "vitest run --config vitest.integracion.config.ts"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.3",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "jszip": "^3.10.2",

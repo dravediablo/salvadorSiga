@@ -1,4 +1,5 @@
 import { ordenarTablas, type Hoja, type Planta, type Recorrido, type Tabla } from '@/dominio'
+import { modoServidor } from '@/datos'
 import { IconoAtras } from '../iconos'
 
 export function Stepper({ valor, min = 0, max = 99, onCambio, etiqueta }: { valor: number; min?: number; max?: number; onCambio: (n: number) => void; etiqueta: string }) {
@@ -84,7 +85,12 @@ export function SelectorTablas({ tablas, sel, onCambio, deshabilitadas = [] }: {
   )
 }
 
-export function EtqEstado({ estado }: { estado: Recorrido['estado'] }) {
+/**
+ * `sincronizado`: cerrado y sin nada suyo (ni de sus tablas, plantas u hojas) en la cola ni en rechazos.
+ * Solo se muestra con sesión del servidor; sin ella nada se envía y sigue "Cerrado, por enviar".
+ */
+export function EtqEstado({ estado, sincronizado = false }: { estado: Recorrido['estado']; sincronizado?: boolean }) {
+  if (modoServidor && estado === 'cerrado' && sincronizado) return <span className="etq e-ok">Sincronizado</span>
   return estado === 'en_curso' ? <span className="etq e-curso">En curso</span> : <span className="etq e-cerrado">Cerrado, por enviar</span>
 }
 

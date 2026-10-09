@@ -6,6 +6,11 @@
 -- ---------------------------------------------------------------------------
 create extension if not exists pgtap with schema extensions;
 
+-- La base de desarrollo trae datos de supabase/seed.sql: las pruebas parten de cero (el rollback final los devuelve).
+truncate table public.clima_diario, public.planta_marcada, public.aplicacion, public.hoja, public.planta, public.evaluacion_tabla,
+  public.recorrido, public."tabla", public.membresia, public.usuario, public.rancho;
+delete from auth.users;
+
 create schema tap_h;
 grant usage on schema tap_h to anon, authenticated;
 

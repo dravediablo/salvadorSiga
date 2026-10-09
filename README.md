@@ -49,3 +49,10 @@ Postgres con Supabase local (requiere Docker y la CLI de Supabase). Los puertos 
 - `npm run db:tipos` regenera `src/datos/supabase/tipos.gen.ts`; `tipos.check.ts` verifica en `npm run typecheck` que el dominio y las filas coinciden.
 - Los clientes solo leen (RLS); escriben únicamente con la función `aplicar_cambios`.
 
+## Sincronización (hito 4)
+
+- Sin sesión (como la app publicada) todo es "solo este dispositivo": no se hace ninguna llamada al servidor.
+- Para probar con el servidor local: `supabase start && supabase db reset` (carga `supabase/seed.sql`: `admin@`, `op1@` y `op2@prueba.test`, contraseña `prueba123`), copia `.env.example` a `.env.development.local` con la URL y la llave anon locales, y `npm run dev`. En la pestaña Estado aparece el acceso de desarrollo (solo en desarrollo; el hito 5 lo reemplaza).
+- `npm run test:integracion` corre las pruebas de integración (dos o tres dispositivos simulados contra Supabase local). `npm run e2e` agrega la prueba de sincronización si `supabase start` está corriendo.
+- `npm run build` termina con `scripts/verificar-dist.mjs`: falla si `dist/` contiene el acceso de desarrollo o alguna URL o llave de Supabase.
+
