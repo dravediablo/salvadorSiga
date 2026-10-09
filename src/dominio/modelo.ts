@@ -23,6 +23,7 @@ function base(): Registro {
 export function nuevoRancho(p: Partial<Rancho> & Pick<Rancho, 'nombre'>): Rancho {
   return {
     ...base(),
+    codigo: '',
     lat: null,
     lon: null,
     // Valores por defecto provisionales (ver Decisiones pendientes en CLAUDE.md).

@@ -18,7 +18,8 @@
     "db:lint": "supabase db lint",
     "db:tipos": "supabase gen types typescript --local > src/datos/supabase/tipos.gen.ts",
     "test:dist": "node scripts/verificar-dist.mjs",
-    "test:integracion": "vitest run --config vitest.integracion.config.ts"
+    "test:integracion": "vitest run --config vitest.integracion.config.ts",
+    "preparar-local": "node scripts/preparar-local.mjs"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

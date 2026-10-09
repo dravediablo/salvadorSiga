@@ -1,4 +1,4 @@
--- Hito 3, pruebas de crear_rancho.
+-- Hito 5, pruebas de cuentas: perfil automático, códigos de alta, cuenta_operador y mi_estado.
 begin;
 select * from no_plan();
 
@@ -220,49 +220,148 @@ create function tap_h.motivo(p_respuesta jsonb, p_i integer) returns text langua
 $$;
 grant execute on all functions in schema tap_h to anon, authenticated;
 
--- "nuevo_sin_perfil": cuenta de auth sin fila en usuario.
-insert into tap_h.ids values ('sin_perfil', 'd1000000-0000-0000-0000-000000000001');
-insert into auth.users (id, instance_id, aud, role, email) values (tap_h.id('sin_perfil'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sin_perfil@prueba.test');
-delete from public.usuario where id = tap_h.id('sin_perfil'); -- el trigger le creó perfil; se quita para probar el error
+-- Un operador del rancho B y las cuentas de operador de A.
+insert into tap_h.ids values ('op_b', 'b2000000-0000-0000-0000-000000000002'), ('nueva', 'e1000000-0000-0000-0000-000000000001'), ('nueva2', 'e2000000-0000-0000-0000-000000000002');
+insert into auth.users (id, instance_id, aud, role, email) values (tap_h.id('op_b'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'op_b@prueba.test');
+insert into public.membresia (id, created_at, updated_at, rancho_id, usuario_id, rol, activo)
+  values (gen_random_uuid(), now(), now(), tap_h.id('rancho_b'), tap_h.id('op_b'), 'operador', true);
+insert into public.cuenta_operador (usuario_id, rancho_id, alias) values
+  (tap_h.id('op1'), tap_h.id('rancho_a'), 'uno'),
+  (tap_h.id('op2'), tap_h.id('rancho_a'), 'dos'),
+  (tap_h.id('op_b'), tap_h.id('rancho_b'), 'bebe');
+insert into public.codigo_alta (codigo) values ('VALIDO23'), ('OTROVAL4');
 
-insert into public.codigo_alta (codigo) values ('ABCD2345'), ('WXYZ6789');
-select tap_h.como('solo');
-create temp table nuevo as select public.crear_rancho('  Rancho C  ', 18.9, -103.9, ' abcd2345 ') as id;
-grant select on nuevo to public;
-select ok((select id from nuevo) is not null, 'crear_rancho devuelve el id');
+-- ===========================================================================
+-- Perfil automático
+-- ===========================================================================
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data)
+  values (tap_h.id('nueva'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ana@correo.test', '{"nombre": "Ana López"}');
+insert into auth.users (id, instance_id, aud, role, email)
+  values (tap_h.id('nueva2'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sin.nombre@correo.test');
+select is((select nombre from public.usuario where id = tap_h.id('nueva')), 'Ana López', 'perfil. se crea con el nombre de raw_user_meta_data');
+select is((select email from public.usuario where id = tap_h.id('nueva')), 'ana@correo.test', 'perfil. y con el correo de la cuenta');
+select is((select nombre from public.usuario where id = tap_h.id('nueva2')), '', 'perfil. sin nombre en los metadatos queda vacío');
+select ok((select not eliminado and server_updated_at is not null from public.usuario where id = tap_h.id('nueva')), 'perfil. con las columnas comunes puestas');
+-- Y la nueva cuenta ya puede crear su rancho (tiene perfil).
+
+-- ===========================================================================
+-- Códigos de alta
+-- ===========================================================================
+select tap_h.como('nueva');
+select throws_ok($$select public.crear_rancho('Sin código', null, null, null)$$, 'P0001', 'Escribe tu código de alta.', 'alta. sin código no se crea el rancho');
+select throws_ok($$select public.crear_rancho('Vacío', null, null, '   ')$$, 'P0001', 'Escribe tu código de alta.', 'alta. un código vacío tampoco');
+select throws_ok($$select public.crear_rancho('Inexistente', null, null, 'NOEXISTE')$$, 'P0001', 'El código de alta no es válido.', 'alta. un código inexistente se rechaza');
+create temp table creado as select public.crear_rancho('Rancho de Ana', 18.5, -103.5, 'valido23') as id; -- sin importar mayúsculas
+grant select on creado to public;
+select ok((select id from creado) is not null, 'alta. un código válido crea el rancho');
 reset role;
-select is((select nombre from public.rancho where id = (select id from nuevo)), 'Rancho C', 'el rancho se creó con el nombre recortado');
-select is((select lat from public.rancho where id = (select id from nuevo)), 18.9::double precision, 'con su latitud');
-select is((select ii_umbral_medio from public.rancho where id = (select id from nuevo)), 20::numeric, 'y los umbrales por defecto (medio 20)');
-select is((select ii_umbral_alto from public.rancho where id = (select id from nuevo)), 30::numeric, '(alto 30)');
-select is((select dias_alerta_aplicacion from public.rancho where id = (select id from nuevo)), 14, '(14 días de alerta)');
+select is((select usado_por from public.codigo_alta where codigo = 'VALIDO23'), tap_h.id('nueva'), 'alta. y queda marcado como usado por esa persona');
+select ok((select usado_en is not null from public.codigo_alta where codigo = 'VALIDO23'), 'alta. con la fecha de uso');
+select is((select count(*) from public.rancho where nombre = 'Rancho de Ana'), 1::bigint, 'alta. el rancho se creó una sola vez');
+select matches((select codigo from public.rancho where nombre = 'Rancho de Ana'), '^[A-HJ-NP-Z2-9]{6}$', 'alta. el rancho recibe un código de 6 caracteres sin O, I, 0 ni 1');
+
+select tap_h.como('nueva2');
+select throws_ok($$select public.crear_rancho('Mismo código', null, null, 'VALIDO23')$$, 'P0001', 'Ese código de alta ya se usó.', 'alta. un código usado se rechaza');
+reset role;
+select is((select count(*) from public.rancho where nombre = 'Mismo código'), 0::bigint, 'alta. y no deja rancho a medias');
+select is((select usado_por from public.codigo_alta where codigo = 'OTROVAL4'), null::uuid, 'alta. los demás códigos siguen sin usar');
+
+-- Códigos de rancho: únicos y con el alfabeto sin ambigüedades.
+select is((select count(distinct codigo) from public.rancho), (select count(*) from public.rancho), 'rancho. los códigos son únicos');
+select is((select count(*) from public.rancho where codigo !~ '^[A-HJ-NP-Z2-9]{6}$'), 0::bigint, 'rancho. todos usan el alfabeto sin O, I, 0 ni 1');
 select is(
-  (select rol from public.membresia where rancho_id = (select id from nuevo) and usuario_id = tap_h.id('solo') and activo and not eliminado),
-  'administrador', 'quien lo crea queda como administrador activo');
-select is((select count(*) from public.membresia where rancho_id = (select id from nuevo)), 1::bigint, 'y es la única membresía');
+  (select count(*) from (select privado.generar_codigo(6) as c from generate_series(1, 2000)) x where c !~ '^[A-HJ-NP-Z2-9]{6}$'),
+  0::bigint, 'rancho. 2000 códigos generados: ninguno con caracteres ambiguos');
+select cmp_ok((select count(distinct privado.generar_codigo(6)) from generate_series(1, 500)), '>', 480::bigint, 'rancho. y casi nunca se repiten (aleatorios)');
 
--- Ya puede leer su rancho y escribir en él por aplicar_cambios.
-select tap_h.como('solo');
-select is((select count(*) from public.rancho where id = (select id from nuevo)), 1::bigint, 'el nuevo administrador ve su rancho');
-select is(tap_h.resultado(public.aplicar_cambios(jsonb_build_array(
-    tap_h.nuevo('tabla', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', (select id from nuevo), 'codigo', '1', 'nombre', 'T1', 'variedad', '', 'activa', true, 'origen', 'manual')))), 0),
-  'aplicado', 'y puede crear tablas en él');
+-- Nadie lee codigo_alta
+select tap_h.como('admin_a');
+select is(tap_h.sqlstate_de('select count(*) from public.codigo_alta'), '42501', 'alta. un administrador no puede leer codigo_alta');
 reset role;
-
--- Sin perfil: error claro.
-select tap_h.como('sin_perfil');
-select throws_ok($$select public.crear_rancho('Sin perfil', null, null, 'WXYZ6789')$$, 'P0001', 'Tu usuario todavía no tiene perfil. Termina de registrarte e inténtalo de nuevo.', 'sin fila en usuario: error claro');
-reset role;
-select is((select count(*) from public.rancho), 3::bigint, 'y no se creó ningún rancho (2 de la preparación + el de arriba)');
-select is((select usado_por from public.codigo_alta where codigo = 'WXYZ6789'), null::uuid, 'y el código de alta no se gastó');
-
--- Nombre vacío
 select tap_h.como('op1');
-select throws_ok($$select public.crear_rancho('   ', null, null, 'WXYZ6789')$$, 'P0001', 'Escribe el nombre del rancho.', 'nombre vacío: error claro');
+select is(tap_h.sqlstate_de('select count(*) from public.codigo_alta'), '42501', 'alta. un operador tampoco');
+reset role;
+select tap_h.como_anon();
+select is(tap_h.sqlstate_de('select count(*) from public.codigo_alta'), '42501', 'alta. anon tampoco');
+reset role;
+select ok(not exists (select 1 from pg_policies where tablename = 'codigo_alta'), 'alta. y no tiene políticas');
+
+-- ===========================================================================
+-- cuenta_operador: RLS
+-- ===========================================================================
+select tap_h.como('admin_a');
+select is((select count(*) from public.cuenta_operador), 2::bigint, 'cuenta. el administrador de A lee las 2 cuentas de su rancho');
+select is((select count(*) from public.cuenta_operador where rancho_id = tap_h.id('rancho_b')), 0::bigint, 'cuenta. y ninguna de B');
+reset role;
+select tap_h.como('op1');
+select is((select count(*) from public.cuenta_operador), 0::bigint, 'cuenta. un operador no lee ninguna (ni la suya)');
+reset role;
+select tap_h.como('admin_b');
+select is((select count(*) from public.cuenta_operador), 1::bigint, 'cuenta. el administrador de B lee solo la suya');
+select is((select count(*) from public.cuenta_operador where rancho_id = tap_h.id('rancho_a')), 0::bigint, 'cuenta. y nada de A');
+reset role;
+select tap_h.como('solo');
+select is((select count(*) from public.cuenta_operador), 0::bigint, 'cuenta. quien no tiene rancho no ve nada');
+reset role;
+select tap_h.como_anon();
+select is(tap_h.sqlstate_de('select count(*) from public.cuenta_operador'), '42501', 'cuenta. anon no tiene permiso');
+reset role;
+select tap_h.como('admin_a');
+select is(tap_h.sqlstate_de($$update public.cuenta_operador set intentos_fallidos = 0$$), '42501', 'cuenta. el administrador no la modifica directo');
+select is(tap_h.sqlstate_de($$select public.registrar_intento_fallido_operador(null)$$), '42501', 'cuenta. ni llama a las funciones de intentos (solo service_role)');
+select is(tap_h.sqlstate_de($$select public.reiniciar_intentos_operador(null)$$), '42501', 'cuenta. ni a la de reinicio');
 reset role;
 
--- Si falla a la mitad, no queda el rancho sin membresía: la función es atómica.
-select is((select count(*) from public.rancho r where not exists (select 1 from public.membresia m where m.rancho_id = r.id)), 0::bigint, 'ningún rancho quedó sin membresía');
+-- Intentos fallidos y bloqueos (la lógica SQL que usa entrar_operador)
+select is((select intentos_fallidos from public.registrar_intento_fallido_operador(tap_h.id('op1'))), 1, 'intentos. el primero suma 1');
+select is((select bloqueado_hasta from public.cuenta_operador where usuario_id = tap_h.id('op1')), null::timestamptz, 'intentos. sin bloqueo todavía');
+select count(*) from public.registrar_intento_fallido_operador(tap_h.id('op1'));
+select count(*) from public.registrar_intento_fallido_operador(tap_h.id('op1'));
+select is((select intentos_fallidos from public.cuenta_operador where usuario_id = tap_h.id('op1')), 3, 'intentos. el 3.º suma 3');
+select count(*) from public.registrar_intento_fallido_operador(tap_h.id('op1'));
+select is((select bloqueado_hasta is null from public.cuenta_operador where usuario_id = tap_h.id('op1')), true, 'intentos. el 4.º no bloquea');
+select count(*) from public.registrar_intento_fallido_operador(tap_h.id('op1'));
+select ok((select bloqueado_hasta between now() + interval '14 minutes' and now() + interval '16 minutes' from public.cuenta_operador where usuario_id = tap_h.id('op1')), 'intentos. el 5.º bloquea 15 minutos');
+select is((select bloqueado_permanente from public.cuenta_operador where usuario_id = tap_h.id('op1')), false, 'intentos. …no permanente');
+update public.cuenta_operador set intentos_fallidos = 9 where usuario_id = tap_h.id('op1');
+select count(*) from public.registrar_intento_fallido_operador(tap_h.id('op1'));
+select is((select bloqueado_permanente from public.cuenta_operador where usuario_id = tap_h.id('op1')), true, 'intentos. el 10.º bloquea de forma permanente');
+select lives_ok($$select public.reiniciar_intentos_operador((select usuario_id from public.cuenta_operador where alias = 'uno'))$$, 'intentos. reiniciar funciona');
+select is((select intentos_fallidos || bloqueado_permanente::text || coalesce(bloqueado_hasta::text, 'nulo') from public.cuenta_operador where alias = 'uno'), '0falsenulo', 'intentos. y deja todo en cero');
+select is((select intentos_fallidos from public.cuenta_operador where alias = 'dos'), 0, 'intentos. sin tocar las demás cuentas');
+select throws_ok($$insert into public.cuenta_operador (usuario_id, rancho_id, alias) values (gen_random_uuid(), (select rancho_id from public.cuenta_operador where alias = 'uno'), 'otro')$$, '23503', null, 'cuenta. (el usuario debe existir)');
+select throws_ok(format($$insert into public.cuenta_operador (usuario_id, rancho_id, alias) values (%L, %L, 'UNO')$$, tap_h.id('inactivo'), tap_h.id('rancho_a')), '23514', null, 'cuenta. el alias va en minúsculas, sin espacios ni acentos');
+select throws_ok(format($$insert into public.cuenta_operador (usuario_id, rancho_id, alias) values (%L, %L, 'uno')$$, tap_h.id('inactivo'), tap_h.id('rancho_a')), '23505', null, 'cuenta. el alias es único por rancho');
+select lives_ok(format($$insert into public.cuenta_operador (usuario_id, rancho_id, alias) values (%L, %L, 'uno')$$, tap_h.id('admin_b'), tap_h.id('rancho_b')), 'cuenta. …pero el mismo alias en otro rancho sí');
+
+-- ===========================================================================
+-- mi_estado
+-- ===========================================================================
+select tap_h.como('op1');
+select is((select count(*) from public.mi_estado()), 1::bigint, 'mi_estado. devuelve las membresías de quien llama');
+select is((select rol || activo::text from public.mi_estado()), 'operadortrue', 'mi_estado. con rol y activo');
+select is((select rancho_id from public.mi_estado()), tap_h.id('rancho_a'), 'mi_estado. y el rancho');
+reset role;
+select ok((select ultima_sincronizacion between now() - interval '1 minute' and now() + interval '1 minute' from public.cuenta_operador where alias = 'uno' and rancho_id = tap_h.id('rancho_a')), 'mi_estado. actualiza la última sincronización del operador');
+select is((select ultima_sincronizacion from public.cuenta_operador where alias = 'dos'), null::timestamptz, 'mi_estado. y solo la suya');
+
+select tap_h.como('inactivo');
+select is((select count(*) from public.mi_estado()), 1::bigint, 'mi_estado. una membresía INACTIVA también aparece');
+select is((select activo from public.mi_estado()), false, 'mi_estado. marcada como inactiva');
+select is((select count(*) from public.rancho), 0::bigint, 'mi_estado. mientras no ve nada de su rancho (RLS)');
+reset role;
+
+-- Eliminada: no aparece. Sin membresía: vacío.
+update public.membresia set eliminado = true where id = tap_h.id('m_op2');
+select tap_h.como('op2');
+select is((select count(*) from public.mi_estado()), 0::bigint, 'mi_estado. una membresía eliminada no aparece');
+reset role;
+select tap_h.como('solo');
+select is((select count(*) from public.mi_estado()), 0::bigint, 'mi_estado. sin membresías: vacío');
+reset role;
+select tap_h.como_anon();
+select is(tap_h.sqlstate_de('select * from public.mi_estado()'), '42501', 'mi_estado. anon no puede ejecutarla');
+reset role;
 
 select * from finish();
 rollback;

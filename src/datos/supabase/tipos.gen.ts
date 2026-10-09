@@ -171,6 +171,83 @@ export type Database = {
           },
         ]
       }
+      codigo_alta: {
+        Row: {
+          codigo: string
+          creado_en: string
+          usado_en: string | null
+          usado_por: string | null
+        }
+        Insert: {
+          codigo: string
+          creado_en?: string
+          usado_en?: string | null
+          usado_por?: string | null
+        }
+        Update: {
+          codigo?: string
+          creado_en?: string
+          usado_en?: string | null
+          usado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codigo_alta_usado_por_fkey"
+            columns: ["usado_por"]
+            isOneToOne: false
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuenta_operador: {
+        Row: {
+          alias: string
+          bloqueado_hasta: string | null
+          bloqueado_permanente: boolean
+          creado_en: string
+          intentos_fallidos: number
+          rancho_id: string
+          ultima_sincronizacion: string | null
+          usuario_id: string
+        }
+        Insert: {
+          alias: string
+          bloqueado_hasta?: string | null
+          bloqueado_permanente?: boolean
+          creado_en?: string
+          intentos_fallidos?: number
+          rancho_id: string
+          ultima_sincronizacion?: string | null
+          usuario_id: string
+        }
+        Update: {
+          alias?: string
+          bloqueado_hasta?: string | null
+          bloqueado_permanente?: boolean
+          creado_en?: string
+          intentos_fallidos?: number
+          rancho_id?: string
+          ultima_sincronizacion?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuenta_operador_rancho_id_fkey"
+            columns: ["rancho_id"]
+            isOneToOne: false
+            referencedRelation: "rancho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuenta_operador_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evaluacion_tabla: {
         Row: {
           created_at: string
@@ -459,6 +536,7 @@ export type Database = {
       }
       rancho: {
         Row: {
+          codigo: string
           created_at: string
           dias_alerta_aplicacion: number
           eliminado: boolean
@@ -472,6 +550,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          codigo?: string
           created_at: string
           dias_alerta_aplicacion?: number
           eliminado?: boolean
@@ -485,6 +564,7 @@ export type Database = {
           updated_at: string
         }
         Update: {
+          codigo?: string
           created_at?: string
           dias_alerta_aplicacion?: number
           eliminado?: boolean
@@ -647,10 +727,35 @@ export type Database = {
       aplicar_cambios: { Args: { lote: Json }; Returns: Json }
       comparte_rancho_con: { Args: { p_usuario_id: string }; Returns: boolean }
       crear_rancho: {
-        Args: { p_lat?: number; p_lon?: number; p_nombre: string }
+        Args: {
+          p_codigo_alta?: string
+          p_lat?: number
+          p_lon?: number
+          p_nombre: string
+        }
         Returns: string
       }
       es_miembro: { Args: { p_rancho_id: string }; Returns: boolean }
+      mi_estado: {
+        Args: never
+        Returns: {
+          activo: boolean
+          rancho_id: string
+          rol: string
+        }[]
+      }
+      registrar_intento_fallido_operador: {
+        Args: { p_usuario_id: string }
+        Returns: {
+          bloqueado_hasta: string
+          bloqueado_permanente: boolean
+          intentos_fallidos: number
+        }[]
+      }
+      reiniciar_intentos_operador: {
+        Args: { p_usuario_id: string }
+        Returns: undefined
+      }
       rol_en: { Args: { p_rancho_id: string }; Returns: string }
     }
     Enums: {

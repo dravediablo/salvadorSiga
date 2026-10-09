@@ -28,6 +28,8 @@ export interface Poligono {
 
 export interface Rancho extends Registro {
   nombre: string
+  /** Código de 6 caracteres con el que entran los operadores. Lo genera el servidor; vacío en la etapa sin servidor. */
+  codigo: string
   lat: number | null
   lon: number | null
   ii_umbral_medio: number
