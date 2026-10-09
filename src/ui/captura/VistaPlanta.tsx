@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, repos, type CambiosPlanta, type DetallePlanta } from '@/datos'
+import { consultas, enSegundoPlano, repos, type CambiosPlanta, type DetallePlanta } from '@/datos'
 import { hf, iiPlanta, puedeEditarRecorrido, validar, type ActorPermisos, type GradoGauhl, type Hoja } from '@/dominio'
 import { useInstalacion } from '@/pwa/instalacion'
 import { asegurarPersistencia } from '@/pwa/persistencia'
-import { avisar, confirmar, enSegundoPlano } from '../dialogos'
+import { avisar, confirmar, conAviso } from '../dialogos'
 import { fmt } from '../formato'
 import { IconoAtras } from '../iconos'
 import type { Nav } from '../navegacion'
@@ -44,17 +44,17 @@ function FormularioPlanta({ detalle, actor, nav, ir }: { detalle: DetallePlanta 
   function cambiar(cambios: CambiosPlanta) {
     if (!editable) return
     setP((x) => ({ ...x, ...cambios }))
-    enSegundoPlano(repos.plantas.actualizar(p.id, cambios))
+    void enSegundoPlano(() => repos.plantas.actualizar(p.id, cambios), `planta:${p.id}:${Object.keys(cambios).sort().join(',')}`)
   }
 
   function cambiarTh(n: number) {
     if (!editable) return
     setP((x) => ({ ...x, total_hojas: n }))
-    enSegundoPlano(repos.plantas.cambiarTotalHojas(p.id, n))
+    void enSegundoPlano(() => repos.plantas.cambiarTotalHojas(p.id, n), `th:${p.id}`)
   }
 
   function calificar(hoja: Hoja, grado: GradoGauhl) {
-    enSegundoPlano(repos.plantas.calificarHoja(hoja.id, grado))
+    void enSegundoPlano(() => repos.plantas.calificarHoja(hoja.id, grado), `hoja:${hoja.id}`)
   }
 
   async function siguiente() {
@@ -189,7 +189,7 @@ function FormularioPlanta({ detalle, actor, nav, ir }: { detalle: DetallePlanta 
         <span className="peq muted">{gpsMsg ?? (tieneGps ? `${p.gps_lat}, ${p.gps_lon} (±${p.gps_precision_m} m)` : 'Ubicación opcional')}</span>
       </div>
       {editable && (
-        <button className="enlace" type="button" style={{ color: 'var(--error)', marginTop: 12 }} onClick={() => enSegundoPlano(borrar())}>
+        <button className="enlace" type="button" style={{ color: 'var(--error)', marginTop: 12 }} onClick={() => conAviso(borrar())}>
           Eliminar esta planta
         </button>
       )}
@@ -206,7 +206,7 @@ function FormularioPlanta({ detalle, actor, nav, ir }: { detalle: DetallePlanta 
             >
               <IconoAtras />
             </button>
-            <button className="btn btn-p" type="button" style={{ flex: 1 }} onClick={() => enSegundoPlano(siguiente())}>
+            <button className="btn btn-p" type="button" style={{ flex: 1 }} onClick={() => conAviso(siguiente())}>
               {pos < plantas.length - 1 ? 'Siguiente planta' : 'Guardar y nueva planta'}
             </button>
           </div>

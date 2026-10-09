@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, repos } from '@/datos'
+import { consultas, mensajeDeError, repos } from '@/datos'
 import { hoy, ordenarTablas, semanaISO } from '@/dominio'
-import { enSegundoPlano } from '../dialogos'
+import { avisar } from '../dialogos'
 import { etiquetaSemana } from '../formato'
 import type { Nav } from '../navegacion'
 import { Migas, SelectorTablas } from './componentes'
@@ -29,7 +29,7 @@ export function NuevoRecorrido({ ranchoId, usuarioId, operador, ir }: Props) {
       ir({ vista: 'recorrido', recorridoId: recorrido.id })
     } catch (e) {
       setOcupado(false)
-      enSegundoPlano(Promise.reject(e))
+      avisar(`No se pudo guardar: ${mensajeDeError(e)}`)
     }
   }
 

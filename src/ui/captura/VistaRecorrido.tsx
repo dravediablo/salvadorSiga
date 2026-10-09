@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, repos } from '@/datos'
+import { consultas, hayFallos, repos } from '@/datos'
 import {
   ordenarTablas, puedeCerrarRecorrido, puedeEditarRecorrido, puedeEliminarRecorrido, puedeReabrirRecorrido, resumen, completa, type ActorPermisos,
 } from '@/dominio'
-import { avisar, confirmar, enSegundoPlano } from '../dialogos'
+import { avisar, confirmar, conAviso } from '../dialogos'
+import { useFallos } from '../useFallos'
 import { etiquetaSemana, fechaSinAnio, fmt } from '../formato'
 import type { Nav } from '../navegacion'
 import { EtqEstado, Faltante, Migas, SelectorTablas } from './componentes'
@@ -20,6 +21,7 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
   const todasTablas = useLiveQuery(() => consultas.tablas(), [])
   const [agregar, setAgregar] = useState(false)
   const [selNuevas, setSelNuevas] = useState<string[]>([])
+  const fallos = useFallos()
 
   if (detalle === undefined) return <div className="cargando">Cargando recorrido…</div>
   if (detalle === null) return <Faltante texto="El recorrido ya no existe." onVolver={() => ir({ vista: 'lista' })} />
@@ -31,6 +33,11 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
   const activas = (todasTablas ?? []).filter((t) => t.activa)
 
   async function cerrar() {
+    // Un cambio que no se pudo guardar se perdería al cerrar: primero hay que reintentarlo.
+    if (hayFallos()) {
+      avisar('Hay cambios sin guardar. Toca Reintentar en el aviso rojo de arriba antes de cerrar el recorrido.')
+      return
+    }
     const vacias = evs.filter((e) => !e.plantas.length).length
     const incompletas = evs.flatMap((e) => e.plantas).filter((x) => !completa(x.planta, x.hojas)).length
     let msg = 'Ya no podrás editarlo desde el celular del operador.'
@@ -117,7 +124,7 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
                 <button className="btn" type="button" onClick={() => setAgregar(false)}>
                   Cancelar
                 </button>
-                <button className="btn btn-p" type="button" disabled={!selNuevas.length} onClick={() => enSegundoPlano(agregarTablas())}>
+                <button className="btn btn-p" type="button" disabled={!selNuevas.length} onClick={() => conAviso(agregarTablas())}>
                   Agregar
                 </button>
               </div>
@@ -128,7 +135,7 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
                 Agregar tabla
               </button>
               {puedeCerrarRecorrido(actor, recorrido) && (
-                <button className="btn btn-p" type="button" onClick={() => enSegundoPlano(cerrar())}>
+                <button className="btn btn-p" type="button" disabled={fallos.length > 0} onClick={() => conAviso(cerrar())}>
                   Cerrar recorrido
                 </button>
               )}
@@ -142,13 +149,13 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
             <button
               className="btn btn-q"
               type="button"
-              onClick={() => enSegundoPlano(repos.recorridos.reabrir(recorrido.id).then(() => avisar('Recorrido reabierto')))}
+              onClick={() => conAviso(repos.recorridos.reabrir(recorrido.id).then(() => avisar('Recorrido reabierto')))}
             >
               Reabrir recorrido
             </button>
           )}
           {puedeEliminarRecorrido(actor) && (
-            <button className="btn btn-x" type="button" onClick={() => enSegundoPlano(eliminar())}>
+            <button className="btn btn-x" type="button" onClick={() => conAviso(eliminar())}>
               Eliminar recorrido
             </button>
           )}

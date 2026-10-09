@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { mensajeDeError } from '@/datos'
 
 /**
  * Diálogos propios de la app. Nunca se usan alert(), confirm() ni prompt():
@@ -26,12 +27,13 @@ export function avisar(mensaje: string): void {
   window.dispatchEvent(new CustomEvent<string>('sigatoka:aviso', { detail: mensaje }))
 }
 
-/** Ejecuta una escritura en segundo plano; si falla, lo dice con palabras claras. */
-export function enSegundoPlano(promesa: Promise<unknown>): void {
-  promesa.catch((e: unknown) => {
-    const detalle = e instanceof Error ? e.message : 'error desconocido'
-    avisar(`No se pudo guardar: ${detalle} Intenta de nuevo.`)
-  })
+/**
+ * Acción que el usuario pidió con un botón (crear, borrar, cerrar…): si falla, lo dice
+ * con un aviso y el botón se puede volver a tocar. Los cambios de captura que se
+ * guardan solos van por `enSegundoPlano` de `@/datos`, que sí los reintenta.
+ */
+export function conAviso(promesa: Promise<unknown>): void {
+  promesa.catch((e: unknown) => avisar(`No se pudo guardar: ${mensajeDeError(e)}`))
 }
 
 export function Dialogo() {

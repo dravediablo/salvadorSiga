@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, sesion, type UsuarioActual } from '@/datos'
+import { consultas, reintentar, sesion, type UsuarioActual } from '@/datos'
 import { useConexion } from '@/pwa/conexion'
+import { useFallos } from './useFallos'
 
 function Conexion() {
   const enLinea = useConexion()
@@ -38,9 +39,37 @@ interface Props {
   actual: UsuarioActual
 }
 
+/** Aviso fijo cuando una escritura en segundo plano falló: el cambio se conserva y se puede reintentar. */
+function AvisoFallos() {
+  const fallos = useFallos()
+  const [reintentando, setReintentando] = useState(false)
+  if (!fallos.length) return null
+  return (
+    <div className="aviso-fallo" role="alert">
+      <div>
+        <b>No se pudo guardar: {fallos[0].mensaje}</b>
+        {fallos.length > 1 && <span> ({fallos.length} cambios sin guardar)</span>}
+        <div className="peq">Tu captura sigue en pantalla. No cierres el recorrido hasta que se guarde.</div>
+      </div>
+      <button
+        className="btn btn-xp"
+        type="button"
+        disabled={reintentando}
+        onClick={() => {
+          setReintentando(true)
+          void reintentar().finally(() => setReintentando(false))
+        }}
+      >
+        {reintentando ? 'Reintentando…' : 'Reintentar'}
+      </button>
+    </div>
+  )
+}
+
 export function Encabezado({ actual }: Props) {
   const usuarios = useLiveQuery(() => sesion.disponibles(), [])
   return (
+    <>
     <header className="barra">
       <div className="marca">
         <span className="marca-hoja" aria-hidden="true"></span>
@@ -56,5 +85,7 @@ export function Encabezado({ actual }: Props) {
       </select>
       <Conexion />
     </header>
+    <AvisoFallos />
+    </>
   )
 }

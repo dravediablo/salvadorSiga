@@ -195,5 +195,7 @@ table.datos tr.clic:hover td{background:var(--surface)}
 .banda-actualizacion{position:sticky;top:0;z-index:70;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--ink);color:var(--bg);padding:10px 16px}
 .banda-actualizacion .btn-q{background:transparent;border-color:var(--bg);color:var(--bg)}
 .tira-boton{display:block;width:100%;min-height:48px;text-align:left;background:none;border:0;padding:6px 0;cursor:pointer}
+.aviso-fallo{position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px);z-index:19;display:flex;align-items:center;gap:12px;background:var(--error-bg);color:var(--error);border-bottom:2px solid var(--error);padding:10px 14px}
+.aviso-fallo .btn{flex:none}
 .aviso-ios{border-radius:0;margin:0;font-weight:700}
 .sin-conexion-detalle b{font-weight:700}

@@ -56,7 +56,7 @@ test('flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión),
   await entrarComo(page, 'Operador 1 (operador)')
   await expect(page.getByText('No tienes recorridos abiertos')).toBeVisible()
 
-  // 3. Crear un recorrido de 2 tablas (la franja "2A buffer" entra desactivada y no se ofrece).
+  // 3. Crear un recorrido de 2 tablas (las franjas "buffer" del KMZ no se importan, así que no se ofrecen).
   await page.getByRole('button', { name: 'Nuevo recorrido' }).click()
   await expect(page.getByRole('button', { name: '2A buffer' })).toHaveCount(0)
   await page.getByRole('button', { name: '1', exact: true }).click()
@@ -127,7 +127,7 @@ test('flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión),
   await expect(page.getByText('No tienes recorridos abiertos')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Cerrados' })).toHaveCount(0)
 
-  // Nada se perdió: 5 plantas con sus hojas y cambios en la cola, guardados en IndexedDB.
+  // Nada se perdió: 5 plantas con sus hojas y un pendiente por registro en la cola, guardados en IndexedDB.
   const datos = await page.evaluate(async () => {
     const abrir = indexedDB.open('sigatoka')
     const db = await new Promise<IDBDatabase>((ok, mal) => {
@@ -142,12 +142,21 @@ test('flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión),
       })
     const plantas = (await todo('plantas')) as Array<{ eliminado: boolean }>
     const hojas = (await todo('hojas')) as Array<{ eliminado: boolean; grado_gauhl: number | null }>
-    const pendientes = await todo('pendientes')
-    return { plantas: plantas.filter((p) => !p.eliminado).length, hojasCalificadas: hojas.filter((h) => !h.eliminado && h.grado_gauhl != null).length, pendientes: pendientes.length }
+    const cola = await todo('cola')
+    let registros = 0
+    for (const t of ['ranchos', 'usuarios', 'membresias', 'tablas', 'recorridos', 'evaluaciones', 'plantas', 'hojas']) registros += (await todo(t)).length
+    return {
+      plantas: plantas.filter((p) => !p.eliminado).length,
+      hojasCalificadas: hojas.filter((h) => !h.eliminado && h.grado_gauhl != null).length,
+      pendientes: cola.length,
+      registros,
+    }
   })
   expect(datos.plantas).toBe(5)
   expect(datos.hojasCalificadas).toBe(25)
-  expect(datos.pendientes).toBeGreaterThan(50)
+  // La cola tiene una sola entrada por registro.
+  expect(datos.pendientes).toBe(datos.registros)
+  expect(datos.pendientes).toBeGreaterThan(40)
 })
 
 test('12 hojas seguidas sin esperar: la interfaz avanza al instante y todo se guarda en orden', async ({ page }) => {
@@ -192,6 +201,67 @@ test('12 hojas seguidas sin esperar: la interfaz avanza al instante y todo se gu
       }),
     )
     .toEqual(grados)
+})
+
+test('si IndexedDB falla al guardar: aviso fijo con Reintentar, el recorrido no se puede cerrar y al reintentar se guarda', async ({ page }) => {
+  await configurarRancho(page)
+  await entrarComo(page, 'Operador 1 (operador)')
+  await page.getByRole('button', { name: 'Nuevo recorrido' }).click()
+  await page.getByRole('button', { name: '1', exact: true }).click()
+  await page.getByRole('button', { name: 'Iniciar recorrido (1 tabla)' }).click()
+  await page.getByRole('button', { name: /^1 Sin iniciar/ }).click()
+  await page.getByRole('button', { name: /^Nueva planta/ }).click()
+  await ponerTh(page)
+  await page.getByRole('button', { name: /^Calificar las 5 hojas/ }).click()
+
+  // Simula un disco lleno: toda escritura a IndexedDB falla hasta que se quite la marca.
+  await page.evaluate(() => {
+    const w = window as unknown as { __romper: boolean }
+    w.__romper = true
+    const original = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+      if (w.__romper) throw new DOMException('Sin espacio (simulado)', 'QuotaExceededError')
+      return original.apply(this, args)
+    }
+  })
+  await page.getByRole('button', { name: /^Grado 3:/ }).click()
+  const aviso = page.getByRole('alert').filter({ hasText: 'No se pudo guardar' })
+  await expect(aviso).toBeVisible()
+  await expect(aviso).toContainText('sin espacio')
+  await expect(aviso.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  // La captura sigue en pantalla aunque no se haya guardado.
+  await expect(page.getByRole('button', { name: 'Hoja 1, grado 3' })).toBeVisible()
+
+  // Con el fallo pendiente, el recorrido no se puede cerrar.
+  await page.getByRole('dialog', { name: 'Calificar hojas' }).getByRole('button', { name: /^Planta 1/ }).click()
+  await page.getByRole('button', { name: /^Tabla 1/ }).click()
+  await page.getByRole('button', { name: /^Recorrido del/ }).click()
+  await expect(page.getByRole('button', { name: 'Cerrar recorrido' })).toBeDisabled()
+
+  // Se libera el espacio y se reintenta: se guarda y el aviso desaparece.
+  await page.evaluate(() => {
+    ;(window as unknown as { __romper: boolean }).__romper = false
+  })
+  await aviso.getByRole('button', { name: 'Reintentar' }).click()
+  await expect(aviso).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Cerrar recorrido' })).toBeEnabled()
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const abrir = indexedDB.open('sigatoka')
+        const db = await new Promise<IDBDatabase>((ok, mal) => {
+          abrir.onsuccess = () => ok(abrir.result)
+          abrir.onerror = () => mal(abrir.error)
+        })
+        const hojas = await new Promise<Array<{ numero_hoja: number; grado_gauhl: number | null; eliminado: boolean }>>((ok, mal) => {
+          const r = db.transaction('hojas').objectStore('hojas').getAll()
+          r.onsuccess = () => ok(r.result)
+          r.onerror = () => mal(r.error)
+        })
+        return hojas.find((h) => !h.eliminado && h.numero_hoja === 1)?.grado_gauhl
+      }),
+    )
+    .toBe(3)
 })
 
 test.describe('iPhone sin instalar', () => {

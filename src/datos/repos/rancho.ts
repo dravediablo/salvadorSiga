@@ -17,7 +17,7 @@ export function crearRepoRancho(db: SigatokaDB) {
      * Configuración inicial del dispositivo: rancho, tres usuarios de prueba con sus
      * membresías y las tablas del KMZ, todo en una transacción.
      */
-    configurarInicial(p: { nombre: string; poligonos: readonly PoligonoKml[] }): Promise<{ rancho: Rancho; usuarios: Usuario[]; membresias: Membresia[] }> {
+    configurarInicial(p: { nombre: string; poligonos: readonly PoligonoKml[] }): Promise<{ rancho: Rancho; usuarios: Usuario[]; membresias: Membresia[]; omitidas: string[] }> {
       return escribir(db, async () => {
         if ((await db.ranchos.count()) > 0) throw new Error('Este dispositivo ya tiene un rancho configurado.')
         const nombre = p.nombre.trim()
@@ -41,10 +41,10 @@ export function crearRepoRancho(db: SigatokaDB) {
           db,
           'tablas',
           plan.nuevas.map((x) =>
-            nuevaTabla({ rancho_id: rancho.id, codigo: x.codigo, nombre: x.nombre, superficie_ha: x.superficie_ha, geometria: x.geometria, origen: 'kmz', activa: !x.buffer }),
+            nuevaTabla({ rancho_id: rancho.id, codigo: x.codigo, nombre: x.nombre, superficie_ha: x.superficie_ha, geometria: x.geometria, origen: 'kmz' }),
           ),
         )
-        return { rancho, usuarios, membresias }
+        return { rancho, usuarios, membresias, omitidas: plan.omitidas }
       })
     },
 

@@ -3,7 +3,7 @@ import { consultas, repos } from '@/datos'
 import { completa, hf, iiPlanta, puedeEditarRecorrido, resumen, validar, type ActorPermisos } from '@/dominio'
 import { asegurarPersistencia } from '@/pwa/persistencia'
 import { useInstalacion } from '@/pwa/instalacion'
-import { avisar, enSegundoPlano } from '../dialogos'
+import { avisar, conAviso } from '../dialogos'
 import { fechaSinAnio, fmt, horaCorta } from '../formato'
 import type { Nav } from '../navegacion'
 import { Faltante, Migas, TiraHojas } from './componentes'
@@ -68,7 +68,7 @@ export function VistaTabla({ actor, nav, ir }: Props) {
         </div>
       </div>
       {editable && (
-        <button className="btn btn-p btn-b" type="button" style={{ margin: '6px 0 14px' }} onClick={() => enSegundoPlano(nueva())}>
+        <button className="btn btn-p btn-b" type="button" style={{ margin: '6px 0 14px' }} onClick={() => conAviso(nueva())}>
           Nueva planta (nº {siguienteNumero})
         </button>
       )}
@@ -100,7 +100,7 @@ export function VistaTabla({ actor, nav, ir }: Props) {
       </ul>
       {!plantas.length && <div className="caja vacio-panel">Aún no hay plantas. Elige una planta parida y captúrala.</div>}
       {editable && plantas.length > 0 && (
-        <button className="btn btn-b" type="button" style={{ marginTop: 16 }} onClick={() => enSegundoPlano(terminar())}>
+        <button className="btn btn-b" type="button" style={{ marginTop: 16 }} onClick={() => conAviso(terminar())}>
           Terminar tabla
         </button>
       )}

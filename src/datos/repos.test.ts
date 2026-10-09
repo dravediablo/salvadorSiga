@@ -30,10 +30,11 @@ const kmz = (): Uint8Array => new Uint8Array(readFileSync(resolve(process.cwd(),
 async function sembrar(db: SigatokaDB) {
   const poligonos = await leerPoligonos(kmz(), 'sintetico.kmz')
   const rancho = crearRepoRancho(db)
-  const { rancho: r, usuarios, membresias } = await rancho.configurarInicial({ nombre: 'Rancho de prueba', poligonos })
+  const { rancho: r, usuarios, membresias, omitidas } = await rancho.configurarInicial({ nombre: 'Rancho de prueba', poligonos })
   const tablas = (await db.tablas.toArray()).sort((a, b) => a.codigo.localeCompare(b.codigo))
   return {
     rancho: r,
+    omitidas,
     usuarios,
     membresias,
     tablas,
@@ -64,14 +65,16 @@ afterEach(async () => {
 })
 
 describe('configuración inicial', () => {
-  it('crea rancho, 3 usuarios con membresías y las tablas del KMZ sintético', async () => {
+  it('crea rancho, 3 usuarios con membresías y las tablas del KMZ sintético (sin las franjas buffer)', async () => {
     const db = nuevaBase()
     const s = await sembrar(db)
     expect(s.usuarios.map((u) => u.nombre)).toEqual(['Propietario', 'Operador 1', 'Operador 2'])
     expect(s.membresias.map((m) => m.rol)).toEqual(['administrador', 'operador', 'operador'])
     expect(s.membresias.every((m) => m.rancho_id === s.rancho.id && m.activo)).toBe(true)
-    expect(s.tablas.map((t) => t.codigo)).toEqual(['1', '2', '2A buffer'])
-    expect(s.tablas.map((t) => t.activa)).toEqual([true, true, false])
+    expect(s.tablas.map((t) => t.codigo)).toEqual(['1', '2', '3'])
+    expect(s.tablas.every((t) => t.activa)).toBe(true)
+    expect(await db.tablas.count()).toBe(3) // los 2 buffer del archivo no entraron
+    expect(s.omitidas).toEqual(['Tabla 2A Buffer 0.30', 'Tabla 3 BUFFER 0.20'])
     expect(s.tablas.every((t) => t.origen === 'kmz' && t.geometria?.type === 'Polygon' && (t.superficie_ha ?? 0) > 0)).toBe(true)
   })
   it('no permite configurar dos veces ni sin nombre', async () => {
@@ -99,7 +102,7 @@ describe('recorridos y cola de pendientes', () => {
     const nuevas = (await listarPendientes(db)).slice(antes)
     expect(nuevas.map((p) => p.entidad)).toEqual(['recorridos', 'evaluaciones', 'evaluaciones', 'evaluaciones'])
     expect(nuevas.map((p) => p.registro_id)).toEqual([recorrido.id, ...evaluaciones.map((e) => e.id)])
-    expect(nuevas.every((p) => p.updated_at && p.creado_en)).toBe(true)
+    expect(nuevas.every((p) => p.updated_at)).toBe(true)
   })
 
   it('agregar tablas ignora las que ya están', async () => {
@@ -111,14 +114,16 @@ describe('recorridos y cola de pendientes', () => {
     expect(await db.evaluaciones.count()).toBe(2)
   })
 
-  it('cada escritura deja su entrada: el último pendiente de cada registro coincide con su updated_at', async () => {
+  it('cola de una entrada por registro: cada registro modificado tiene exactamente una, con su updated_at', async () => {
     const db = nuevaBase()
     const s = await sembrar(db)
     const { recorrido, evaluaciones } = await s.recorridos.crear({
       rancho_id: s.rancho.id, fecha: '2026-10-09', usuario_id: s.usuarios[1].id, tabla_ids: [s.tablas[0].id, s.tablas[1].id],
     })
     const p = await nuevaPlantaConGrados(s, evaluaciones[0].id, [0, 1, 2, 3])
-    await s.plantas.actualizar(p.id, { hmj_pizca: 2, observaciones: 'x' })
+    // Muchas escrituras al mismo registro no deben multiplicar sus entradas.
+    for (let i = 0; i < 5; i++) await s.plantas.actualizar(p.id, { hmj_pizca: i + 1 })
+    await s.plantas.actualizar(p.id, { observaciones: 'x' })
     await s.plantas.cambiarTotalHojas(p.id, 2)
     await s.recorridos.terminarTabla(evaluaciones[0].id)
     await s.repoTablas.editar(s.tablas[0].id, { variedad: 'Gran Enano' })
@@ -128,24 +133,40 @@ describe('recorridos y cola de pendientes', () => {
     await s.recorridos.eliminar(recorrido.id)
 
     const cola = await listarPendientes(db)
+    let registros = 0
     for (const entidad of ENTIDADES) {
       for (const fila of await db.table(entidad).toArray()) {
+        registros++
         const suyas = cola.filter((c) => c.entidad === entidad && c.registro_id === fila.id)
-        expect(suyas.length, `${entidad}/${fila.id} sin entrada en la cola`).toBeGreaterThan(0)
-        expect(suyas[suyas.length - 1].updated_at, `${entidad}/${fila.id}`).toBe(fila.updated_at)
+        expect(suyas, `${entidad}/${fila.id}: debe haber exactamente una entrada`).toHaveLength(1)
+        expect(suyas[0].updated_at, `${entidad}/${fila.id}`).toBe(fila.updated_at)
       }
     }
-    // Un mismo registro puede tener varias entradas; el conteo es de registros distintos.
-    expect(cola.length).toBeGreaterThan(await contarPendientes(db))
+    // Ninguna entrada huérfana: la cola y los registros son uno a uno.
+    expect(cola).toHaveLength(registros)
+    expect(await contarPendientes(db)).toBe(registros)
+  })
+
+  it('la entrada de un registro se sobrescribe con el updated_at más reciente (la cola no crece)', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    const { evaluaciones } = await s.recorridos.crear({ rancho_id: s.rancho.id, fecha: '2026-10-09', usuario_id: s.usuarios[1].id, tabla_ids: [s.tablas[0].id] })
+    const { planta } = await s.plantas.crear(evaluaciones[0].id)
+    const antes = await contarPendientes(db)
+    const marcas: string[] = []
+    for (let i = 0; i < 4; i++) marcas.push((await s.plantas.actualizar(planta.id, { hmj_pizca: i + 1 })).updated_at)
+    expect(await contarPendientes(db)).toBe(antes)
+    expect(await db.cola.get(['plantas', planta.id])).toEqual({ entidad: 'plantas', registro_id: planta.id, updated_at: marcas[3] })
+    expect(new Set(marcas).size).toBe(4)
   })
 
   it('una transacción que falla a la mitad no deja ni el cambio ni la entrada en la cola', async () => {
     const db = nuevaBase()
     const s = await sembrar(db)
     const colaAntes = (await listarPendientes(db)).length
-    const original = db.pendientes.add.bind(db.pendientes)
+    const original = db.cola.put.bind(db.cola)
     let llamadas = 0
-    vi.spyOn(db.pendientes, 'add').mockImplementation(((...args: Parameters<typeof original>) => {
+    vi.spyOn(db.cola, 'put').mockImplementation(((...args: Parameters<typeof original>) => {
       // La 1.ª (recorrido) y la 2.ª (primera evaluación) pasan; la 3.ª falla a la mitad.
       if (++llamadas === 3) return Promise.reject(new Error('fallo simulado'))
       return original(...args)
@@ -168,7 +189,7 @@ describe('recorridos y cola de pendientes', () => {
     const s = await sembrar(db)
     const colaAntes = (await listarPendientes(db)).length
     // Falla la entrada de la cola justo después de escribir el registro: el registro también debe deshacerse.
-    vi.spyOn(db.pendientes, 'add').mockRejectedValue(new Error('disco lleno'))
+    vi.spyOn(db.cola, 'put').mockRejectedValue(new Error('disco lleno'))
     await expect(
       s.recorridos.crear({ rancho_id: s.rancho.id, fecha: '2026-10-09', usuario_id: s.usuarios[1].id, tabla_ids: [s.tablas[0].id] }),
     ).rejects.toThrow('disco lleno')
@@ -187,9 +208,9 @@ describe('recorridos y cola de pendientes', () => {
     await Promise.all(promesas)
     expect((await db.hojas.get(hojas[0].id))?.grado_gauhl).toBe(6) // 13 % 7
     const nuevas = (await listarPendientes(db)).slice(colaAntes)
-    expect(nuevas).toHaveLength(14)
-    const tiempos = nuevas.map((p) => p.updated_at)
-    expect([...tiempos].sort()).toEqual(tiempos)
+    // Las 14 escrituras son al mismo registro: una sola entrada, con la marca de la última.
+    expect(nuevas).toHaveLength(0)
+    expect(await db.cola.get(['hojas', hojas[0].id])).toMatchObject({ updated_at: (await db.hojas.get(hojas[0].id))?.updated_at })
   })
 })
 
@@ -363,13 +384,14 @@ describe('tablas: importar y reimportar', () => {
     const s = await sembrar(db)
     const antes = await db.tablas.count()
     const r = await s.repoTablas.importar(s.rancho.id, [pol('Tabla 1. Sup. 1 ha.'), pol('Tabla 7. Sup. 2 ha.')], { desactivarFaltantes: true })
-    expect(r).toMatchObject({ nuevas: 1, actualizadas: 1, desactivadas: 1 })
+    expect(r).toMatchObject({ nuevas: 1, actualizadas: 1, desactivadas: 2 })
     const todas = await db.tablas.toArray()
     expect(todas).toHaveLength(antes + 1)
     expect(todas.every((t) => !t.eliminado)).toBe(true)
     const porCodigo = Object.fromEntries(todas.map((t) => [t.codigo, t]))
     expect(porCodigo['1'].activa).toBe(true)
     expect(porCodigo['2'].activa).toBe(false) // no venía en el archivo
+    expect(porCodigo['3'].activa).toBe(false)
     expect(porCodigo['7'].activa).toBe(true)
     expect(porCodigo['1'].id).toBe(s.tablas.find((t) => t.codigo === '1')!.id) // mismo id, se actualizó
   })
@@ -382,20 +404,81 @@ describe('tablas: importar y reimportar', () => {
     expect((await db.tablas.toArray()).find((t) => t.codigo === '2')?.activa).toBe(true)
   })
 
+  it('reimportar actualiza solo geometría y nombre: conserva superficie, variedad y estado', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    const uno = s.tablas.find((t) => t.codigo === '1')!
+    await s.repoTablas.editar(uno.id, { superficie_ha: 6.82, variedad: 'Gran Enano', activa: false })
+    const r = await s.repoTablas.importar(s.rancho.id, [pol('Tabla 1. Nombre nuevo')], { desactivarFaltantes: false })
+    const despues = (await db.tablas.get(uno.id))!
+    expect(despues.nombre).toBe('Tabla 1. Nombre nuevo')
+    expect(despues.geometria).not.toEqual(uno.geometria)
+    expect(despues.superficie_ha).toBe(6.82)
+    expect(despues.variedad).toBe('Gran Enano')
+    expect(despues.activa).toBe(false) // no se reactiva sola
+    // El polígono de prueba mide ~3,5 ha frente a 6,82 guardadas: se informa, sin aplicarlo.
+    expect(r.cambiosSuperficie).toHaveLength(1)
+    expect(r.cambiosSuperficie[0]).toMatchObject({ tabla_id: uno.id, codigo: '1', guardada: 6.82 })
+    expect(r.cambiosSuperficie[0].poligono).not.toBe(6.82)
+    expect(r.cambiosSuperficie[0].diferencia).toBeGreaterThan(0.05)
+  })
+
+  it('no avisa cuando la superficie del polígono difiere 5 % o menos; aplicar la nueva es una edición normal', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    const uno = s.tablas.find((t) => t.codigo === '1')!
+    const poligonos = await leerPoligonos(kmz(), 'sintetico.kmz')
+    // Mismo archivo: superficies idénticas a las guardadas → nada que avisar.
+    const igual = await s.repoTablas.importar(s.rancho.id, poligonos, { desactivarFaltantes: false })
+    expect(igual.cambiosSuperficie).toEqual([])
+    await s.repoTablas.editar(uno.id, { superficie_ha: (uno.superficie_ha ?? 0) * 1.04 })
+    expect((await s.repoTablas.importar(s.rancho.id, poligonos, { desactivarFaltantes: false })).cambiosSuperficie).toEqual([])
+    await s.repoTablas.editar(uno.id, { superficie_ha: (uno.superficie_ha ?? 0) * 1.5 })
+    const r = await s.repoTablas.importar(s.rancho.id, poligonos, { desactivarFaltantes: false })
+    expect(r.cambiosSuperficie.map((c) => c.codigo)).toEqual(['1'])
+    expect((await db.tablas.get(uno.id))?.superficie_ha).toBeCloseTo((uno.superficie_ha ?? 0) * 1.5, 5) // sin aplicar
+    await s.repoTablas.editar(uno.id, { superficie_ha: r.cambiosSuperficie[0].poligono }) // "aplicar la nueva"
+    expect((await db.tablas.get(uno.id))?.superficie_ha).toBe(uno.superficie_ha)
+  })
+
+  it('reimportar el KMZ sintético lista los buffer como omitidos y no crea tablas', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    const r = await s.repoTablas.importar(s.rancho.id, await leerPoligonos(kmz(), 'sintetico.kmz'), { desactivarFaltantes: true })
+    expect(r).toMatchObject({ nuevas: 0, actualizadas: 3, desactivadas: 0, buffersEliminados: 0 })
+    expect(r.omitidas).toEqual(['Tabla 2A Buffer 0.30', 'Tabla 3 BUFFER 0.20'])
+    expect(await db.tablas.count()).toBe(3)
+  })
+
+  it('reimportar da de baja (eliminado = true) las tablas buffer que ya existían, con su entrada en la cola', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    // Una tabla buffer importada por una versión anterior de la app.
+    const buffer = { ...s.tablas[0], id: crypto.randomUUID(), codigo: '2A buffer', nombre: 'Tabla 2A Buffer 0.30', activa: false }
+    await db.tablas.put(buffer)
+    const r = await s.repoTablas.importar(s.rancho.id, [pol('Tabla 1.')], { desactivarFaltantes: false })
+    expect(r.buffersEliminados).toBe(1)
+    const despues = (await db.tablas.get(buffer.id))!
+    expect(despues.eliminado).toBe(true)
+    expect(await db.cola.get(['tablas', buffer.id])).toMatchObject({ updated_at: despues.updated_at })
+  })
+
   it('editar una tabla guarda el cambio y lo manda a la cola', async () => {
     const db = nuevaBase()
     const s = await sembrar(db)
     const antes = (await listarPendientes(db)).length
     await s.repoTablas.editar(s.tablas[0].id, { variedad: 'Gran Enano', superficie_ha: 7.5, activa: false })
     expect(await db.tablas.get(s.tablas[0].id)).toMatchObject({ variedad: 'Gran Enano', superficie_ha: 7.5, activa: false })
-    expect((await listarPendientes(db)).length).toBe(antes + 1)
+    // La tabla ya estaba en la cola: la entrada se sobrescribe con el updated_at nuevo.
+    expect((await listarPendientes(db)).length).toBe(antes)
+    expect(await db.cola.get(['tablas', s.tablas[0].id])).toMatchObject({ updated_at: (await db.tablas.get(s.tablas[0].id))?.updated_at })
   })
 })
 
 describe('importar KMZ', () => {
-  it('lee los 3 polígonos del KMZ sintético', async () => {
+  it('lee los 5 polígonos del KMZ sintético (3 tablas y 2 buffer; los buffer se omiten al importar)', async () => {
     const p = await leerPoligonos(kmz(), 'sintetico.kmz')
-    expect(p.map((x) => x.nombre)).toEqual(['Tabla 1. Sup. 6.8 ha.', 'tabla 2. Sup. 5.1 ha.', 'Tabla 2A Buffer 0.30'])
+    expect(p.map((x) => x.nombre)).toEqual(['Tabla 1. Sup. 6.8 ha.', 'tabla 2. Sup. 5.1 ha.', 'Tabla 3. Sup. 4.2 ha.', 'Tabla 2A Buffer 0.30', 'Tabla 3 BUFFER 0.20'])
     expect(p.every((x) => x.anillo.length === 5)).toBe(true)
   })
   it('acepta un KML suelto', async () => {
@@ -404,7 +487,7 @@ describe('importar KMZ', () => {
   })
   it('acepta un Blob', async () => {
     const p = await leerPoligonos(new Blob([kmz().slice().buffer]), 'sintetico.kmz')
-    expect(p).toHaveLength(3)
+    expect(p).toHaveLength(5)
   })
   it('un KMZ dañado o sin KML da un error en español', async () => {
     await expect(leerPoligonos(new Uint8Array([1, 2, 3]), 'malo.kmz')).rejects.toThrow('dañado')

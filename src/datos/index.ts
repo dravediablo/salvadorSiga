@@ -25,6 +25,7 @@ export const ajustes = crearAjustes(db)
 export const sesion = crearSesion(db)
 
 export { leerPoligonos } from './importarKmz'
+export { enSegundoPlano, fallosPendientes, mensajeDeError, hayFallos, reintentar, suscribirFallos, type Fallo } from './fallos'
 export type { UsuarioActual } from './sesion'
 export type { DetallePlanta, DetalleRecorrido, DetalleTabla, EvaluacionConDatos, TarjetaRecorrido } from './consultas'
 export type { CambiosTabla, ResultadoImportacion } from './repos/tablas'

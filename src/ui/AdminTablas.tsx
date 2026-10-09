@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, leerPoligonos, repos, type CambiosTabla, type ResultadoImportacion } from '@/datos'
+import { consultas, enSegundoPlano, leerPoligonos, repos, type CambiosTabla, type ResultadoImportacion } from '@/datos'
 import { ordenarTablas, type Tabla } from '@/dominio'
-import { enSegundoPlano } from './dialogos'
+import { fmt } from './formato'
 
 const ORIGEN: Record<Tabla['origen'], string> = { kmz: 'KMZ', manual: 'Manual' }
 
@@ -11,10 +11,18 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
   const todas = useLiveQuery(() => consultas.tablas(), [])
   const [desactivar, setDesactivar] = useState(true)
   const [msg, setMsg] = useState<{ tipo: 'info' | 'error'; texto: string; avisos?: string[] } | null>(null)
+  // Tablas cuya superficie guardada difiere del polígono nuevo; el administrador decide cuáles actualizar.
+  const [difieren, setDifieren] = useState<ResultadoImportacion['cambiosSuperficie']>([])
   const archivo = useRef<HTMLInputElement>(null)
   const tablas = ordenarTablas(todas ?? [])
 
-  const editar = (t: Tabla, cambios: CambiosTabla) => enSegundoPlano(repos.tablas.editar(t.id, cambios))
+  const editar = (t: Tabla, cambios: CambiosTabla) =>
+    void enSegundoPlano(() => repos.tablas.editar(t.id, cambios), `tabla:${t.id}:${Object.keys(cambios).sort().join(',')}`)
+
+  const aplicarSuperficie = (c: ResultadoImportacion['cambiosSuperficie'][number]) => {
+    void enSegundoPlano(() => repos.tablas.editar(c.tabla_id, { superficie_ha: c.poligono }), `tabla:${c.tabla_id}:superficie_ha`)
+    setDifieren((l) => l.filter((x) => x.tabla_id !== c.tabla_id))
+  }
 
   async function importar(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -23,10 +31,14 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
     try {
       const poligonos = await leerPoligonos(f, f.name)
       const r: ResultadoImportacion = await repos.tablas.importar(ranchoId, poligonos, { desactivarFaltantes: desactivar })
+      setDifieren(r.cambiosSuperficie)
+      const avisos = [...r.advertencias]
+      if (r.omitidas.length) avisos.push(`No se importaron ${r.omitidas.length} franja(s) "buffer": ${r.omitidas.join('; ')}.`)
+      if (r.buffersEliminados) avisos.push(`Se dieron de baja ${r.buffersEliminados} tabla(s) "buffer" que se habían importado antes.`)
       setMsg({
         tipo: 'info',
-        texto: `Importadas ${r.nuevas} tabla(s) nueva(s) y ${r.actualizadas} actualizada(s).${r.desactivadas ? ` Se desactivaron ${r.desactivadas} que no venían en el archivo (sus datos históricos se conservan).` : ''}`,
-        avisos: r.advertencias,
+        texto: `Importadas ${r.nuevas} tabla(s) nueva(s) y ${r.actualizadas} actualizada(s) (polígono y nombre; la superficie guardada se conserva).${r.desactivadas ? ` Se desactivaron ${r.desactivadas} que no venían en el archivo (sus datos históricos se conservan).` : ''}`,
+        avisos,
       })
     } catch (err) {
       setMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'No se pudo leer el archivo.' })
@@ -37,7 +49,7 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
     <div>
       <h1>Tablas</h1>
       <p className="peq muted">
-        {tablas.filter((t) => t.activa).length} activas de {tablas.length}. Importa el KMZ o KML del rancho; si una tabla ya existe con el mismo código, se actualiza su polígono y su superficie.
+        {tablas.filter((t) => t.activa).length} activas de {tablas.length}. Importa el KMZ o KML del rancho; si una tabla ya existe con el mismo código, se actualizan su polígono y su nombre, y se conserva su superficie. Las franjas "buffer" no se importan.
       </p>
       {msg && (
         <div className={msg.tipo === 'error' ? 'error' : 'info'} role={msg.tipo === 'error' ? 'alert' : 'status'}>
@@ -49,6 +61,24 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
               ))}
             </ul>
           )}
+        </div>
+      )}
+      {difieren.length > 0 && (
+        <div className="aviso" role="status">
+          <b>La superficie del polígono difiere más de 5 % de la guardada en:</b>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {difieren.map((c) => (
+              <li key={c.tabla_id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '6px 0' }}>
+                <span style={{ flex: 1, minWidth: 180 }}>
+                  Tabla {c.codigo}: guardada {fmt(c.guardada, 2)} ha, polígono {fmt(c.poligono, 2)} ha ({fmt(c.diferencia * 100, 0)} %)
+                </span>
+                <button className="btn btn-s" type="button" onClick={() => aplicarSuperficie(c)}>
+                  Usar {fmt(c.poligono, 2)} ha
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="peq">Si no tocas nada, se conserva la superficie guardada.</div>
         </div>
       )}
       <input ref={archivo} type="file" accept=".kmz,.kml" hidden onChange={(e) => void importar(e)} aria-label="Archivo KMZ o KML para reimportar" />
