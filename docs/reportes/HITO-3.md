@@ -26,3 +26,11 @@ Ver el handoff (sección Verificación).
 
 ## 7. Dudas o riesgos abiertos
 Ver el handoff ("Necesito del responsable o del supervisor").
+
+## 8. Ajustes de la revisión del supervisor
+Migración nueva `20261009120400_ajustes_revision.sql` (las anteriores no se tocan):
+- **Funciones cerradas por defecto** (`alter default privileges`, global para PUBLIC y por esquema para anon/authenticated en `public` y `privado`). Prueba **n**: la lista exacta de funciones de `public` ejecutables por `authenticated` es {aplicar_cambios, comparte_rancho_con, crear_rancho, es_miembro, rol_en}; `anon` no ejecuta ninguna; nada de `privado`; una función nueva creada en la prueba queda cerrada.
+- **semana_iso coherente con la fecha**: CHECK `semana_iso = to_char(fecha, 'IYYY-"W"IW')`, traducido a "La semana no corresponde a la fecha." Pruebas: 2026-12-31/2026-W53 aceptado, 2027-01-01/2027-W01 rechazado, 2024-12-30/2025-W01 aceptado (más 2027-01-01/2026-W53 aceptado).
+- **usuario.email lo pone el servidor** (el de `auth.users`): prueba de un correo ajeno que se ignora.
+- La prueba **l.** no cambió de conteos (11 tablas, 11 políticas). Total: 353 asserts.
+

@@ -596,13 +596,48 @@ create temp table r_j2 on commit drop as
     tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2026-10-09', 'semana_iso', '2026-W41', 'usuario_id', tap_h.id('op1'), 'estado', 'terminado'))
   )) as r;
 grant select on r_j2 to public;
-select matches(tap_h.motivo((select r from r_j2), 0), 'AAAA-Www', 'j. semana_iso mal formada → motivo legible');
+select matches(tap_h.motivo((select r from r_j2), 0), '^La semana', 'j. semana_iso mal formada → rechazado con motivo legible');
 select is(tap_h.resultado((select r from r_j2), 1), 'rechazado', 'j. fecha inválida → rechazado');
 select matches(tap_h.motivo((select r from r_j2), 2), 'codigo', 'j. falta un dato obligatorio → el motivo nombra la columna');
 select is(tap_h.resultado((select r from r_j2), 3), 'rechazado', 'j. un elemento que no es objeto se rechaza sin abortar el lote');
 select is(tap_h.resultado((select r from r_j2), 4), 'rechazado', 'j. un registro sin id se rechaza');
 select matches(tap_h.motivo((select r from r_j2), 5), 'en_curso o cerrado', 'j. estado inválido → motivo legible');
 reset role;
+
+-- ===========================================================================
+-- Semana ISO coherente con la fecha
+-- ===========================================================================
+select tap_h.como('admin_a');
+create temp table r_sem on commit drop as
+  select public.aplicar_cambios(jsonb_build_array(
+    tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2026-12-31', 'semana_iso', '2026-W53', 'usuario_id', tap_h.id('op1'), 'estado', 'en_curso')),
+    tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2027-01-01', 'semana_iso', '2027-W01', 'usuario_id', tap_h.id('op1'), 'estado', 'en_curso')),
+    tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2024-12-30', 'semana_iso', '2025-W01', 'usuario_id', tap_h.id('op1'), 'estado', 'en_curso')),
+    tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2027-01-01', 'semana_iso', '2026-W53', 'usuario_id', tap_h.id('op1'), 'estado', 'en_curso')),
+    tap_h.nuevo('recorrido', jsonb_build_object('id', gen_random_uuid(), 'rancho_id', tap_h.id('rancho_a'), 'fecha', '2026-10-09', 'semana_iso', '2026-W40', 'usuario_id', tap_h.id('op1'), 'estado', 'en_curso'))
+  )) as r;
+grant select on r_sem to public;
+select is(tap_h.resultado((select r from r_sem), 0), 'aplicado', 'semana. 2026-12-31 con 2026-W53 se acepta');
+select is(tap_h.resultado((select r from r_sem), 1), 'rechazado', 'semana. 2027-01-01 con 2027-W01 se rechaza (es de la semana 2026-W53)');
+select matches(tap_h.motivo((select r from r_sem), 1), 'La semana no corresponde a la fecha', 'semana. …con motivo legible');
+select is(tap_h.resultado((select r from r_sem), 2), 'aplicado', 'semana. 2024-12-30 con 2025-W01 se acepta');
+select is(tap_h.resultado((select r from r_sem), 3), 'aplicado', 'semana. 2027-01-01 con 2026-W53 se acepta');
+select is(tap_h.resultado((select r from r_sem), 4), 'rechazado', 'semana. una semana distinta a la de la fecha se rechaza');
+reset role;
+
+-- ===========================================================================
+-- usuario.email lo pone el servidor
+-- ===========================================================================
+select tap_h.como('op1');
+create temp table r_mail on commit drop as
+  select public.aplicar_cambios(jsonb_build_array(
+    tap_h.mod('usuario', tap_h.id('op1'), '{"nombre": "Operador Uno", "email": "otro@ajeno.com"}')
+  )) as r;
+grant select on r_mail to public;
+select is(tap_h.resultado((select r from r_mail), 0), 'aplicado', 'email. el perfil se actualiza');
+reset role;
+select is((select email from public.usuario where id = tap_h.id('op1')), 'op1@prueba.test', 'email. un correo ajeno se ignora: queda el de la cuenta');
+select is((select nombre from public.usuario where id = tap_h.id('op1')), 'Operador Uno', 'email. el resto del perfil sí cambia');
 
 -- ===========================================================================
 -- Cierre al final aunque el recorrido llegue primero y con hojas nuevas después; idempotencia de un lote repetido

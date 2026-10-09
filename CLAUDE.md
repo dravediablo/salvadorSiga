@@ -113,6 +113,9 @@ referencia/
 7. Todo registro lleva `created_at`, `updated_at` (cliente) y `server_updated_at` (servidor; vacío hasta sincronizar). El `updated_at` de un dispositivo nunca retrocede: si el reloj da una hora igual o anterior a la última emitida, se usa la última más 1 ms.
 8. Guardado automático continuo: cerrar la app nunca pierde datos.
 9. Escrituras al servidor: solo por la función `aplicar_cambios` de Postgres. Los clientes no tienen permisos de INSERT, UPDATE ni DELETE directos. La función aplica permisos, "gana la más reciente" y el orden entre entidades en una sola transacción. Las lecturas se protegen con RLS.
+10. Descarga: por entidad, filas con `server_updated_at` mayor que (cursor − 2 minutos), para no perder cambios que se confirmaron en el servidor con retraso. Los repetidos se resuelven con "gana la más reciente".
+11. Al recibir un registro remoto, el generador de marcas local avanza hasta su `updated_at` (si no está más de 24 h en el futuro), para que la siguiente edición local nunca pierda contra una marca remota.
+12. Los cambios que el servidor rechaza no se reintentan solos: pasan a una lista visible de rechazos con su motivo. Si el registro se vuelve a editar, entra otra vez a la cola.
 
 ### Varios ranchos
 

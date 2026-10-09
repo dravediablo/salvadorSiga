@@ -354,5 +354,39 @@ select is(
   (select count(*) from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon'),
   0::bigint, 'l. anon no tiene ningún privilegio en las tablas');
 
+-- ===========================================================================
+-- n. Funciones cerradas por defecto: solo se ejecuta lo que se concedió a propósito
+-- ===========================================================================
+reset role;
+select is(
+  (select array_agg(p.proname::text order by p.proname)
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')   -- las de extensiones no cuentan
+      and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+  array['aplicar_cambios', 'comparte_rancho_con', 'crear_rancho', 'es_miembro', 'rol_en'],
+  'n. la lista EXACTA de funciones de public que authenticated puede ejecutar');
+select is(
+  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      and has_function_privilege('anon', p.oid, 'EXECUTE')),
+  0::bigint, 'n. anon no puede ejecutar ninguna función de public');
+select is(
+  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'privado'
+      and (has_function_privilege('authenticated', p.oid, 'EXECUTE') or has_function_privilege('anon', p.oid, 'EXECUTE'))),
+  0::bigint, 'n. ni anon ni authenticated pueden ejecutar nada del esquema privado');
+select is(
+  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')),
+  5::bigint, 'n. las 5 funciones SECURITY DEFINER de public son exactamente las esperadas');
+-- Una función nueva que alguien olvide conceder queda cerrada (por eso este assert hace fallar la prueba si se le concede por descuido).
+create function public.funcion_olvidada() returns integer language sql as 'select 1';
+select ok(not has_function_privilege('authenticated', 'public.funcion_olvidada()', 'EXECUTE'), 'n. una función nueva no es ejecutable por authenticated');
+select ok(not has_function_privilege('anon', 'public.funcion_olvidada()', 'EXECUTE'), 'n. ni por anon');
+create function privado.funcion_olvidada() returns integer language sql as 'select 1';
+select ok(not has_function_privilege('authenticated', 'privado.funcion_olvidada()', 'EXECUTE'), 'n. ni siquiera en el esquema privado');
+
 select * from finish();
 rollback;
