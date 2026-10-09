@@ -7,3 +7,5 @@ coverage
 *.tsbuildinfo
 # datos reales de productores (CLAUDE.md): nunca al repositorio
 datos-locales/
+test-results
+playwright-report
