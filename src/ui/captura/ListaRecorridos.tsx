@@ -56,7 +56,7 @@ export function ListaRecorridos({ actor, ir, irAInstalar }: Props) {
           </div>
         </div>
         <div className="der">
-          <EtqEstado estado={t.recorrido.estado} />
+          <EtqEstado estado={t.recorrido.estado} sincronizado={t.sincronizado} />
         </div>
       </button>
     </li>

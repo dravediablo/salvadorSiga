@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useConexion } from '@/pwa/conexion'
 import { useInstalacion } from '@/pwa/instalacion'
 import { estaPersistente, leerRegistros, solicitarPersistencia, type RegistroPersistencia } from '@/pwa/persistencia'
+import { AccesoDesarrollo } from './AccesoDesarrollo'
 import { PanelInstalacion } from './PanelInstalacion'
+import { Rechazos } from './Rechazos'
 
 const TEXTO_RESULTADO: Record<RegistroPersistencia['resultado'], string> = {
   concedida: 'Concedida',
@@ -49,6 +51,7 @@ export function PantallaEstado() {
   return (
     <div>
       <h1>Estado de la app</h1>
+      <Rechazos />
       <PanelInstalacion modo={modo} onInstalar={() => void instalar()} />
       <section className="seccion" aria-labelledby="estado">
         <h2 id="estado">Este dispositivo</h2>
@@ -65,6 +68,7 @@ export function PantallaEstado() {
           Solicitar almacenamiento persistente
         </button>
       </section>
+      <AccesoDesarrollo />
       <footer className="pie peq muted">
         Versión de la compilación: <span className="num">{__VERSION_COMPILACION__}</span>
       </footer>

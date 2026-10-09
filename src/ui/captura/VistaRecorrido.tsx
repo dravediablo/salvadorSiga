@@ -71,7 +71,7 @@ export function VistaRecorrido({ actor, recorridoId, ir }: Props) {
             Semana {etiquetaSemana(recorrido.semana_iso)}, {operador}
           </p>
         </div>
-        <EtqEstado estado={recorrido.estado} />
+        <EtqEstado estado={recorrido.estado} sincronizado={detalle.sincronizado} />
       </div>
       <div className="kpis" style={{ margin: '12px 0' }}>
         <div className="kpi">

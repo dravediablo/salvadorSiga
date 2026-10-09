@@ -46,6 +46,14 @@ export function crearReloj(almacen: AlmacenReloj, ahoraMs: () => number = () => 
       ultima = Math.max(ahoraMs(), (ultima as number) + 1)
       return new Date(ultima).toISOString()
     },
+    /**
+     * Adelanta el generador hasta una marca remota (el `updated_at` más alto recibido del servidor), para que
+     * la siguiente edición local nunca pierda contra ella. No retrocede nunca. Se persiste con `persistir`.
+     */
+    async avanzarHasta(ms: number): Promise<void> {
+      await cargar()
+      if (ms > (ultima as number)) ultima = ms
+    },
     /** Guarda la última marca emitida. Llamar dentro de la transacción de escritura. */
     async persistir(): Promise<void> {
       if (ultima === undefined || ultima === guardada) return
