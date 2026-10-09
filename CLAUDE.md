@@ -112,11 +112,13 @@ referencia/
 6. Los IDs son UUID generados en el cliente (`crypto.randomUUID()`).
 7. Todo registro lleva `created_at`, `updated_at` (cliente) y `server_updated_at` (servidor; vacío hasta sincronizar). El `updated_at` de un dispositivo nunca retrocede: si el reloj da una hora igual o anterior a la última emitida, se usa la última más 1 ms.
 8. Guardado automático continuo: cerrar la app nunca pierde datos.
+9. Escrituras al servidor: solo por la función `aplicar_cambios` de Postgres. Los clientes no tienen permisos de INSERT, UPDATE ni DELETE directos. La función aplica permisos, "gana la más reciente" y el orden entre entidades en una sola transacción. Las lecturas se protegen con RLS.
 
 ### Varios ranchos
 
 - Todas las tablas de datos llevan `rancho_id`.
 - Las reglas de acceso de Postgres (RLS) garantizan que un usuario solo lee y escribe en los ranchos donde tiene membresía, con permisos según su rol.
+- En el servidor el operador puede leer también sus recorridos cerrados (la sincronización lo necesita); la interfaz le sigue mostrando solo los abiertos.
 - Esto se valida con pruebas en el hito 3.
 
 ## Modelo de datos
@@ -277,6 +279,10 @@ typecheck: ok/falla · lint: ok/falla · test: <n> en verde (TZ probadas: …) �
 <contenido>
 ```
 ````
+
+## Instrucciones del supervisor
+
+Cuando un mensaje del supervisor pida actualizar `CLAUDE.md` o crear un archivo de `docs/hitos/`, hazlo tú con el contenido indicado y commitéalo. El responsable no copia archivos a mano.
 
 ## Decisiones pendientes (no resolver por cuenta propia)
 
