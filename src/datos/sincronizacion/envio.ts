@@ -1,16 +1,19 @@
-import type { Registro } from '@/dominio'
-import { listarPendientes } from '../cola'
+import type { Recorrido, Registro } from '@/dominio'
 import type { Entidad, Pendiente, SigatokaDB } from '../db'
 import { aRegistroServidor, ENTIDAD_SERVIDOR } from './entidades'
 import type { ItemLote, Servidor } from './servidor'
 
 export const TAMANO_LOTE = 200
 
-interface Preparado {
+/** Orden de dependencias: los padres salen antes que los hijos, también entre lotes distintos. */
+const RANGO: Record<Entidad, number> = {
+  usuarios: 0, ranchos: 1, tablas: 2, recorridos: 3, evaluaciones: 4, plantas: 5, hojas: 6, aplicaciones: 7, membresias: 8, clima: 9,
+}
+const RANGO_CIERRE = 100
+
+interface Candidato {
   entrada: Pendiente
-  /** `updated_at` del registro tal como se envía. */
-  enviado: string
-  item: ItemLote
+  registro: Registro
 }
 
 export interface ResumenEnvio {
@@ -24,9 +27,58 @@ export interface ResumenEnvio {
 }
 
 const ahoraISO = (): string => new Date().toISOString()
+const esRecorridoCerrado = (c: Candidato): boolean => c.entrada.entidad === 'recorridos' && (c.registro as Recorrido).estado === 'cerrado'
 
 /**
- * Envía UN lote (hasta 200 registros, del `updated_at` más viejo al más nuevo) con `aplicar_cambios`.
+ * La cola completa con su registro, en el orden de envío:
+ * 1. por entidad, de padres a hijos (el servidor ordena DENTRO de un lote; entre lotes lo garantiza este orden);
+ * 2. dentro de cada entidad, primero las bajas (así un número de hoja liberado está libre antes de que otra hoja lo use);
+ * 3. luego por `updated_at`.
+ * Los recorridos CERRADOS van al final de todo: el servidor aplica el cierre al terminar el lote, y un recorrido
+ * cerrado antes de que lleguen sus plantas y hojas rechazaría lo que falta.
+ * Las entradas sin registro se retiran de la cola (no se pueden enviar y la trabarían).
+ */
+async function colaOrdenada(db: SigatokaDB): Promise<Candidato[]> {
+  const entradas = await db.cola.toArray()
+  const porEntidad = new Map<Entidad, Pendiente[]>()
+  for (const e of entradas) porEntidad.set(e.entidad, [...(porEntidad.get(e.entidad) ?? []), e])
+  const candidatos: Candidato[] = []
+  const huerfanas: Array<[Entidad, string]> = []
+  for (const [entidad, lista] of porEntidad) {
+    const registros = (await db.table(entidad).bulkGet(lista.map((e) => e.registro_id))) as Array<Registro | undefined>
+    lista.forEach((entrada, i) => {
+      const registro = registros[i]
+      if (registro) candidatos.push({ entrada, registro })
+      else huerfanas.push([entidad, entrada.registro_id])
+    })
+  }
+  if (huerfanas.length) await db.cola.bulkDelete(huerfanas)
+  const rango = (c: Candidato): number => (esRecorridoCerrado(c) ? RANGO_CIERRE : RANGO[c.entrada.entidad])
+  return candidatos.sort(
+    (a, b) =>
+      rango(a) - rango(b) ||
+      Number(b.registro.eliminado) - Number(a.registro.eliminado) ||
+      a.registro.updated_at.localeCompare(b.registro.updated_at) ||
+      a.entrada.registro_id.localeCompare(b.entrada.registro_id),
+  )
+}
+
+/**
+ * Cuando la cola no cabe en un solo lote, un recorrido cerrado todavía no sale (va al final), pero sus tablas
+ * necesitan que ya exista en el servidor. Se manda su "cascarón": el mismo recorrido, en curso y con una marca 1 ms
+ * más vieja. Así existe desde el primer lote y su versión final (cerrado, con su marca real) sigue siendo más nueva
+ * que el cascarón y se aplica, cierre incluido, en el último lote. El cascarón no toca la cola.
+ */
+function cascaron(c: Candidato): ItemLote {
+  const registro = aRegistroServidor(c.registro)
+  return {
+    entidad: ENTIDAD_SERVIDOR.recorridos,
+    registro: { ...registro, estado: 'en_curso', updated_at: new Date(Date.parse(c.registro.updated_at) - 1).toISOString() },
+  }
+}
+
+/**
+ * Envía UN lote (hasta 200 registros) con `aplicar_cambios`.
  *
  * Por cada resultado, en una sola transacción de Dexie:
  * - 'aplicado' / 'ignorado_version': se borra la entrada de la cola SOLO si su `updated_at` sigue
@@ -37,51 +89,41 @@ const ahoraISO = (): string => new Date().toISOString()
  * Si la llamada falla, lanza y no se borra nada.
  */
 export async function enviarLote(db: SigatokaDB, servidor: Servidor, limite = TAMANO_LOTE): Promise<ResumenEnvio> {
-  const entradas = await listarPendientes(db, limite)
-  const resumen: ResumenEnvio = { atendidas: 0, aplicados: 0, ignorados: 0, rechazados: 0, hubo: entradas.length > 0 }
-  if (!entradas.length) return resumen
+  const cola = await colaOrdenada(db)
+  const resumen: ResumenEnvio = { atendidas: 0, aplicados: 0, ignorados: 0, rechazados: 0, hubo: cola.length > 0 }
+  if (!cola.length) return resumen
 
-  const preparados: Preparado[] = []
-  const huerfanas: Pendiente[] = []
-  for (const entrada of entradas) {
-    const registro = (await db.table(entrada.entidad).get(entrada.registro_id)) as Registro | undefined
-    if (!registro) huerfanas.push(entrada)
-    else preparados.push({ entrada, enviado: registro.updated_at, item: { entidad: ENTIDAD_SERVIDOR[entrada.entidad], registro: aRegistroServidor(registro) } })
-  }
-  // Una entrada sin registro no se puede enviar: se retira para que no trabe la cola.
-  if (huerfanas.length) await db.cola.bulkDelete(huerfanas.map((h) => [h.entidad, h.registro_id] as [Entidad, string]))
-
-  if (!preparados.length) {
-    resumen.atendidas = huerfanas.length
-    return resumen
-  }
-  const resultados = await servidor.aplicarCambios(preparados.map((p) => p.item))
-  if (resultados.length !== preparados.length) {
-    throw new Error(`El servidor respondió ${resultados.length} resultados para ${preparados.length} registros.`)
-  }
+  const lote = cola.slice(0, limite)
+  const cascarones = cola.length > limite ? cola.slice(limite).filter(esRecorridoCerrado).map(cascaron) : []
+  const items: ItemLote[] = [
+    ...cascarones,
+    ...lote.map((c) => ({ entidad: ENTIDAD_SERVIDOR[c.entrada.entidad], registro: aRegistroServidor(c.registro) })),
+  ]
+  const todos = await servidor.aplicarCambios(items)
+  if (todos.length !== items.length) throw new Error(`El servidor respondió ${todos.length} resultados para ${items.length} registros.`)
+  const resultados = todos.slice(cascarones.length)
 
   await db.transaction('rw', db.cola, db.rechazos, async () => {
-    for (const [i, p] of preparados.entries()) {
+    for (const [i, c] of lote.entries()) {
       const r = resultados[i]
-      const llave: [Entidad, string] = [p.entrada.entidad, p.entrada.registro_id]
+      const llave: [Entidad, string] = [c.entrada.entidad, c.entrada.registro_id]
+      const enviado = c.registro.updated_at
       const vigente = await db.cola.get(llave)
-      const sigueIgual = !!vigente && vigente.updated_at === p.enviado
+      const sigueIgual = !!vigente && vigente.updated_at === enviado
       if (r.resultado === 'rechazado') {
         // Si la entrada cambió, hay una edición más nueva que se enviará (y se juzgará) por su cuenta.
         if (!sigueIgual) continue
         await db.cola.delete(llave)
-        await db.rechazos.put({ entidad: p.entrada.entidad, registro_id: p.entrada.registro_id, updated_at: p.enviado, motivo: r.motivo ?? 'El servidor rechazó el cambio.', fecha: ahoraISO() })
+        await db.rechazos.put({ entidad: c.entrada.entidad, registro_id: c.entrada.registro_id, updated_at: enviado, motivo: r.motivo ?? 'El servidor rechazó el cambio.', fecha: ahoraISO() })
         resumen.rechazados++
-        resumen.atendidas++
       } else {
         if (sigueIgual) await db.cola.delete(llave)
         if (r.resultado === 'aplicado') resumen.aplicados++
         else resumen.ignorados++
-        if (sigueIgual) resumen.atendidas++
       }
+      if (sigueIgual) resumen.atendidas++
     }
   })
-  resumen.atendidas += huerfanas.length
   return resumen
 }
 
