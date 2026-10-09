@@ -68,8 +68,13 @@ export interface PlanImportacion {
   desactivadas: Tabla[]
   /** Nombres de los polígonos "buffer" que no se importaron. */
   omitidas: string[]
-  /** Tablas "buffer" importadas en versiones anteriores: se marcan eliminadas. */
+  /**
+   * Tablas "buffer" importadas en versiones anteriores. Quien escribe las da de baja
+   * (eliminado = true), salvo las que ya tienen evaluaciones: esas solo se desactivan.
+   */
   buffersPrevios: Tabla[]
+  /** Existentes que vienen en el archivo pero están desactivadas: no se reactivan solas. */
+  desactivadasEnArchivo: Tabla[]
   advertencias: string[]
 }
 
@@ -115,5 +120,6 @@ export function planearImportacion(
     } else nuevas.push(datos)
   }
   const desactivadas = opciones.desactivarFaltantes ? propias.filter((t) => t.activa && !tocadas.has(t.id)) : []
-  return { nuevas, actualizadas, desactivadas, omitidas, buffersPrevios, advertencias }
+  const desactivadasEnArchivo = actualizadas.filter((a) => !a.existente.activa).map((a) => a.existente)
+  return { nuevas, actualizadas, desactivadas, omitidas, buffersPrevios, desactivadasEnArchivo, advertencias }
 }

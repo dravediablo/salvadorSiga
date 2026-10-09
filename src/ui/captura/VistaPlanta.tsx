@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, enSegundoPlano, repos, type CambiosPlanta, type DetallePlanta } from '@/datos'
+import { claveHojaGrado, clavePlantaTh, consultas, enSegundoPlano, gruposDeCambioPlanta, repos, type CambiosPlanta, type DetallePlanta } from '@/datos'
 import { hf, iiPlanta, puedeEditarRecorrido, validar, type ActorPermisos, type GradoGauhl, type Hoja } from '@/dominio'
 import { useInstalacion } from '@/pwa/instalacion'
 import { asegurarPersistencia } from '@/pwa/persistencia'
@@ -44,17 +44,17 @@ function FormularioPlanta({ detalle, actor, nav, ir }: { detalle: DetallePlanta 
   function cambiar(cambios: CambiosPlanta) {
     if (!editable) return
     setP((x) => ({ ...x, ...cambios }))
-    void enSegundoPlano(() => repos.plantas.actualizar(p.id, cambios), `planta:${p.id}:${Object.keys(cambios).sort().join(',')}`)
+    for (const g of gruposDeCambioPlanta(p.id, cambios)) void enSegundoPlano(() => repos.plantas.actualizar(p.id, g.cambios), g.clave)
   }
 
   function cambiarTh(n: number) {
     if (!editable) return
     setP((x) => ({ ...x, total_hojas: n }))
-    void enSegundoPlano(() => repos.plantas.cambiarTotalHojas(p.id, n), `th:${p.id}`)
+    void enSegundoPlano(() => repos.plantas.cambiarTotalHojas(p.id, n), clavePlantaTh(p.id))
   }
 
   function calificar(hoja: Hoja, grado: GradoGauhl) {
-    void enSegundoPlano(() => repos.plantas.calificarHoja(hoja.id, grado), `hoja:${hoja.id}`)
+    void enSegundoPlano(() => repos.plantas.calificarHoja(hoja.id, grado), claveHojaGrado(hoja.id))
   }
 
   async function siguiente() {

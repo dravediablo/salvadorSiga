@@ -14,6 +14,9 @@ export interface Pendiente {
   updated_at: string
 }
 
+/** Ajuste donde las migraciones dejan un aviso para mostrar una sola vez. */
+export const CLAVE_AVISO_MIGRACION = 'aviso.migracion'
+
 /** Entrada de la cola del esquema 1 (una por cambio). Solo la usa la migración. */
 interface PendienteV1 extends Pendiente {
   id?: number
@@ -101,6 +104,28 @@ export class SigatokaDB extends Dexie {
         }
         if (ultima !== undefined) await tx.table('ajustes').put({ clave: CLAVE_ULTIMA_MARCA, valor: ultima })
       })
+    // Versión 4: la versión 3 dio de baja TODAS las franjas "buffer". Las que ya tenían evaluaciones
+    // capturadas se restauran, desactivadas, y se deja un aviso para mostrarlo una vez.
+    this.version(4).upgrade(async (tx) => {
+      const vivas = new Set(((await tx.table('evaluaciones').toArray()) as EvaluacionTabla[]).filter((e) => !e.eliminado).map((e) => e.tabla_id))
+      const restauradas: string[] = []
+      let ultima = (await tx.table('ajustes').get(CLAVE_ULTIMA_MARCA))?.valor as number | undefined
+      for (const t of (await tx.table('tablas').toArray()) as Tabla[]) {
+        if (!(esBuffer(t.nombre) || esBuffer(t.codigo)) || !vivas.has(t.id) || (!t.eliminado && !t.activa)) continue
+        ultima = Math.max(Date.now(), (ultima ?? 0) + 1, Date.parse(t.updated_at) + 1)
+        const updated_at = new Date(ultima).toISOString()
+        await tx.table('tablas').put({ ...t, eliminado: false, activa: false, updated_at })
+        await tx.table('cola').put({ entidad: 'tablas', registro_id: t.id, updated_at } satisfies Pendiente)
+        restauradas.push(t.codigo)
+      }
+      if (ultima !== undefined) await tx.table('ajustes').put({ clave: CLAVE_ULTIMA_MARCA, valor: ultima })
+      if (restauradas.length) {
+        await tx.table('ajustes').put({
+          clave: CLAVE_AVISO_MIGRACION,
+          valor: `La tabla ${restauradas.join(', ')} es una franja "buffer" con evaluaciones capturadas: se conservó desactivada en vez de eliminarse.`,
+        })
+      }
+    })
   }
 }
 

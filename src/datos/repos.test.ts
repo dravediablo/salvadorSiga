@@ -450,6 +450,33 @@ describe('tablas: importar y reimportar', () => {
     expect(await db.tablas.count()).toBe(3)
   })
 
+  it('una tabla buffer existente con evaluaciones se desactiva en vez de eliminarse', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    const conEv = { ...s.tablas[0], id: crypto.randomUUID(), codigo: '5 buffer', nombre: 'Tabla 5 Buffer', activa: true }
+    const sinEv = { ...s.tablas[0], id: crypto.randomUUID(), codigo: '6 buffer', nombre: 'Tabla 6 Buffer', activa: true }
+    await db.tablas.bulkPut([conEv, sinEv])
+    await s.recorridos.crear({ rancho_id: s.rancho.id, fecha: '2026-10-09', usuario_id: s.usuarios[1].id, tabla_ids: [conEv.id] })
+    const r = await s.repoTablas.importar(s.rancho.id, [pol('Tabla 1.')], { desactivarFaltantes: false })
+    expect(r.buffersEliminados).toBe(1)
+    expect(r.buffersConEvaluaciones).toEqual(['5 buffer'])
+    expect(await db.tablas.get(conEv.id)).toMatchObject({ eliminado: false, activa: false })
+    expect(await db.tablas.get(sinEv.id)).toMatchObject({ eliminado: true })
+    expect(await db.cola.get(['tablas', conEv.id])).toMatchObject({ updated_at: (await db.tablas.get(conEv.id))?.updated_at })
+  })
+
+  it('reimportar lista las tablas desactivadas que vienen en el archivo y no las reactiva', async () => {
+    const db = nuevaBase()
+    const s = await sembrar(db)
+    for (const c of ['2', '3']) await s.repoTablas.editar(s.tablas.find((t) => t.codigo === c)!.id, { activa: false })
+    const r = await s.repoTablas.importar(s.rancho.id, await leerPoligonos(kmz(), 'sintetico.kmz'), { desactivarFaltantes: true })
+    expect(r.desactivadasEnArchivo.map((x) => x.codigo).sort()).toEqual(['2', '3'])
+    expect((await db.tablas.toArray()).filter((t) => !t.activa).map((t) => t.codigo).sort()).toEqual(['2', '3'])
+    // "Activarlas" es una edición normal de cada tabla.
+    for (const x of r.desactivadasEnArchivo) await s.repoTablas.editar(x.tabla_id, { activa: true })
+    expect((await db.tablas.toArray()).every((t) => t.activa)).toBe(true)
+  })
+
   it('reimportar da de baja (eliminado = true) las tablas buffer que ya existían, con su entrada en la cola', async () => {
     const db = nuevaBase()
     const s = await sembrar(db)

@@ -5,6 +5,7 @@ import { useActualizacion } from '@/pwa/actualizacion'
 import { useInstalacion } from '@/pwa/instalacion'
 import { AdminTablas } from './AdminTablas'
 import { AvisoActualizacion } from './AvisoActualizacion'
+import { AvisosDeInicio } from './AvisosDeInicio'
 import { Bienvenida } from './Bienvenida'
 import { Campo } from './captura/Campo'
 import { Dialogo, Toast } from './dialogos'
@@ -62,6 +63,7 @@ export function App() {
         ))}
       </nav>
       <Toast />
+      <AvisosDeInicio />
       <Dialogo />
     </div>
   )

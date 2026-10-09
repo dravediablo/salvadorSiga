@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it } from 'vitest'
-import { nuevaTabla } from '@/dominio'
+import { nuevaEvaluacion, nuevaTabla } from '@/dominio'
 import { contarPendientes, listarPendientes } from './cola'
-import { SigatokaDB } from './db'
+import { CLAVE_AVISO_MIGRACION, SigatokaDB } from './db'
 
 const abiertas: Dexie[] = []
 afterEach(() => {
@@ -31,7 +31,7 @@ async function crearBaseV1(nombre: string, llenar: (db: Dexie) => Promise<void>)
   v1.close()
 }
 
-describe('migración del esquema 1 → 3', () => {
+describe('migración del esquema 1 → 4', () => {
   it('consolida la cola vieja en una entrada por registro, con el updated_at más reciente', async () => {
     const nombre = `migracion-${Math.random().toString(36).slice(2)}`
     await crearBaseV1(nombre, async (db) => {
@@ -86,5 +86,35 @@ describe('migración del esquema 1 → 3', () => {
     const db = new SigatokaDB(`migracion-vacia-${Math.random().toString(36).slice(2)}`)
     abiertas.push(db)
     expect(await contarPendientes(db)).toBe(0)
+  })
+})
+
+describe('migración 3 → 4: buffers con evaluaciones', () => {
+  it('restaura (desactivada) la tabla buffer que la v3 eliminó pero tiene evaluaciones; deja eliminada la que no, y avisa', async () => {
+    const nombre = `migracion-v4-${Math.random().toString(36).slice(2)}`
+    const conEv = nuevaTabla({ rancho_id: 'r1', codigo: '2A buffer', nombre: 'Tabla 2A Buffer 0.30', activa: false, eliminado: true })
+    const sinEv = nuevaTabla({ rancho_id: 'r1', codigo: '12 buffer', nombre: 'Tabla 12 BUFFER', activa: false, eliminado: true })
+    const ev = nuevaEvaluacion({ rancho_id: 'r1', recorrido_id: 'rec1', tabla_id: conEv.id })
+    // Base tal como la dejó la versión 3 del esquema.
+    const v3 = new Dexie(nombre)
+    v3.version(1).stores({
+      ranchos: 'id', usuarios: 'id', membresias: 'id, rancho_id, usuario_id', tablas: 'id, rancho_id', recorridos: 'id, rancho_id, usuario_id, estado',
+      evaluaciones: 'id, rancho_id, recorrido_id', plantas: 'id, rancho_id, evaluacion_tabla_id', hojas: 'id, rancho_id, planta_id, [planta_id+numero_hoja]',
+      aplicaciones: 'id, rancho_id', clima: 'id, rancho_id, [rancho_id+fecha]', pendientes: '++id, entidad, registro_id', ajustes: 'clave',
+    })
+    v3.version(2).stores({ cola: '[entidad+registro_id], updated_at' })
+    v3.version(3).stores({ pendientes: null })
+    await v3.table('tablas').bulkPut([conEv, sinEv])
+    await v3.table('evaluaciones').put(ev)
+    v3.close()
+
+    const db = new SigatokaDB(nombre)
+    abiertas.push(db)
+    expect(await db.tablas.get(conEv.id)).toMatchObject({ eliminado: false, activa: false })
+    expect((await db.tablas.get(conEv.id))!.updated_at > conEv.updated_at).toBe(true)
+    expect(await db.tablas.get(sinEv.id)).toMatchObject({ eliminado: true })
+    expect(await db.cola.get(['tablas', conEv.id])).toMatchObject({ updated_at: (await db.tablas.get(conEv.id))!.updated_at })
+    expect(await db.cola.get(['tablas', sinEv.id])).toBeUndefined()
+    expect((await db.ajustes.get(CLAVE_AVISO_MIGRACION))?.valor).toMatch(/2A buffer.*desactivada/)
   })
 })

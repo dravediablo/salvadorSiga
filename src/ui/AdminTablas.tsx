@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { consultas, enSegundoPlano, leerPoligonos, repos, type CambiosTabla, type ResultadoImportacion } from '@/datos'
+import { claveTablaCampo, consultas, enSegundoPlano, leerPoligonos, repos, type CambiosTabla, type ResultadoImportacion } from '@/datos'
 import { ordenarTablas, type Tabla } from '@/dominio'
 import { fmt } from './formato'
 
@@ -13,14 +13,17 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
   const [msg, setMsg] = useState<{ tipo: 'info' | 'error'; texto: string; avisos?: string[] } | null>(null)
   // Tablas cuya superficie guardada difiere del polígono nuevo; el administrador decide cuáles actualizar.
   const [difieren, setDifieren] = useState<ResultadoImportacion['cambiosSuperficie']>([])
+  // Vienen en el archivo pero están desactivadas: el administrador decide si las activa.
+  const [apagadas, setApagadas] = useState<ResultadoImportacion['desactivadasEnArchivo']>([])
   const archivo = useRef<HTMLInputElement>(null)
   const tablas = ordenarTablas(todas ?? [])
 
-  const editar = (t: Tabla, cambios: CambiosTabla) =>
-    void enSegundoPlano(() => repos.tablas.editar(t.id, cambios), `tabla:${t.id}:${Object.keys(cambios).sort().join(',')}`)
+  const editar = (t: Tabla, cambios: CambiosTabla) => {
+    for (const [campo, valor] of Object.entries(cambios)) void enSegundoPlano(() => repos.tablas.editar(t.id, { [campo]: valor }), claveTablaCampo(t.id, campo))
+  }
 
   const aplicarSuperficie = (c: ResultadoImportacion['cambiosSuperficie'][number]) => {
-    void enSegundoPlano(() => repos.tablas.editar(c.tabla_id, { superficie_ha: c.poligono }), `tabla:${c.tabla_id}:superficie_ha`)
+    void enSegundoPlano(() => repos.tablas.editar(c.tabla_id, { superficie_ha: c.poligono }), claveTablaCampo(c.tabla_id, 'superficie_ha'))
     setDifieren((l) => l.filter((x) => x.tabla_id !== c.tabla_id))
   }
 
@@ -32,8 +35,10 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
       const poligonos = await leerPoligonos(f, f.name)
       const r: ResultadoImportacion = await repos.tablas.importar(ranchoId, poligonos, { desactivarFaltantes: desactivar })
       setDifieren(r.cambiosSuperficie)
+      setApagadas(r.desactivadasEnArchivo)
       const avisos = [...r.advertencias]
       if (r.omitidas.length) avisos.push(`No se importaron ${r.omitidas.length} franja(s) "buffer": ${r.omitidas.join('; ')}.`)
+      if (r.buffersConEvaluaciones.length) avisos.push(`La(s) tabla(s) ${r.buffersConEvaluaciones.join(', ')} es/son franja(s) "buffer" con evaluaciones capturadas: se dejó/dejaron desactivada(s) en vez de eliminarse.`)
       if (r.buffersEliminados) avisos.push(`Se dieron de baja ${r.buffersEliminados} tabla(s) "buffer" que se habían importado antes.`)
       setMsg({
         tipo: 'info',
@@ -61,6 +66,23 @@ export function AdminTablas({ ranchoId }: { ranchoId: string }) {
               ))}
             </ul>
           )}
+        </div>
+      )}
+      {apagadas.length > 0 && (
+        <div className="aviso" role="status">
+          <b>Vienen en el archivo pero están desactivadas: {apagadas.map((a) => a.codigo).join(', ')}</b>
+          <div style={{ marginTop: 8 }}>
+            <button
+              className="btn btn-s"
+              type="button"
+              onClick={() => {
+                for (const a of apagadas) void enSegundoPlano(() => repos.tablas.editar(a.tabla_id, { activa: true }), claveTablaCampo(a.tabla_id, 'activa'))
+                setApagadas([])
+              }}
+            >
+              Activarlas
+            </button>
+          </div>
         </div>
       )}
       {difieren.length > 0 && (

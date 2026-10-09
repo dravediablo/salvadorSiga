@@ -133,3 +133,11 @@ describe('cambioDeSuperficie', () => {
     expect(cambioDeSuperficie(0, 5)).toBeNull()
   })
 })
+
+describe('planearImportacion: tablas desactivadas que vienen en el archivo', () => {
+  it('las lista y no las marca para reactivar', () => {
+    const t = (codigo: string, activa: boolean) => nuevaTabla({ rancho_id: RANCHO, codigo, activa })
+    const p = planearImportacion([t('1', true), t('4', false), t('7', false), t('9', false)], ['1', '4', '7'].map((n) => pol(`Tabla ${n}.`)), { desactivarFaltantes: false })
+    expect(p.desactivadasEnArchivo.map((x) => x.codigo)).toEqual(['4', '7'])
+  })
+})

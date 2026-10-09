@@ -49,7 +49,7 @@ function AvisoFallos() {
       <div>
         <b>No se pudo guardar: {fallos[0].mensaje}</b>
         {fallos.length > 1 && <span> ({fallos.length} cambios sin guardar)</span>}
-        <div className="peq">Tu captura sigue en pantalla. No cierres el recorrido hasta que se guarde.</div>
+        <div className="peq">Tu captura sigue en pantalla. No cierres la app hasta que se guarde.</div>
       </div>
       <button
         className="btn btn-xp"

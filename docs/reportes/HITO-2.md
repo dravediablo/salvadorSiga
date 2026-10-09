@@ -244,3 +244,11 @@ exit 0
 
 **Riesgo nuevo:** una tabla buffer dada de baja que tuviera evaluaciones capturadas (solo si alguien la activó a mano antes) quedaría con evaluaciones que apuntan a una tabla eliminada (se muestran como "?"). No es el caso de los datos de prueba; lo menciono por si algún celular piloto ya la usó.
 
+## 9. Ajustes de la tercera ronda
+
+- Claves de fallo por registro **y** campo (`hoja:<id>:grado`, `planta:<id>:th|hmj_pizca|observaciones|gps|…`, `tabla:<id>:<campo>`).
+- Los repositorios lanzan `RegistroInexistente` (error tipado); un cambio pendiente a un registro que ya no existe se descarta y se informa una vez.
+- El aviso fijo agrega "No cierres la app hasta que se guarde."
+- Buffers con evaluaciones se desactivan en vez de eliminarse (importación y migración **v4**; la v3 ya estaba en `main`).
+- Reimportar lista las tablas desactivadas que vienen en el archivo, con botón "Activarlas".
+

@@ -6,6 +6,7 @@
  * lo necesario para reintentarlo tal cual, y la interfaz lo muestra fijo en el
  * encabezado hasta que se guarde. Mientras haya fallos no se puede cerrar un recorrido.
  */
+import { RegistroInexistente } from './errores'
 
 export interface Fallo {
   /** Dos escrituras con la misma clave se reemplazan: gana la última. */
@@ -22,6 +23,7 @@ const ultimaPorClave = new Map<string, number>()
 let contador = 0
 let instantanea: readonly Fallo[] = []
 const oyentes = new Set<() => void>()
+const oyentesDescarte = new Set<(aviso: string) => void>()
 
 function publicar(): void {
   instantanea = [...fallos.values()]
@@ -49,6 +51,16 @@ export function enSegundoPlano(tarea: () => Promise<unknown>, clave: string = `s
       if (ultimaPorClave.get(clave) === numero && fallos.delete(clave)) publicar()
     },
     (e: unknown) => {
+      // El registro ya no existe (se bajó el TH, se eliminó la planta…): reintentar no tiene sentido.
+      // Se descarta el cambio (y cualquier fallo previo de la misma clave) y se avisa una sola vez.
+      if (e instanceof RegistroInexistente) {
+        if (ultimaPorClave.get(clave) === numero) {
+          ultimaPorClave.delete(clave)
+          if (fallos.delete(clave)) publicar()
+        }
+        for (const o of oyentesDescarte) o(e.aviso)
+        return
+      }
       // Si ya se lanzó una escritura más nueva de lo mismo, esta ya no importa.
       if (ultimaPorClave.get(clave) !== numero) return
       fallos.set(clave, { clave, mensaje: mensajeDeError(e), tarea })
@@ -74,9 +86,42 @@ export function suscribirFallos(oyente: () => void): () => void {
   }
 }
 
+/** Avisa cada vez que se descarta un cambio pendiente a un registro que ya no existe. */
+export function alDescartar(oyente: (aviso: string) => void): () => void {
+  oyentesDescarte.add(oyente)
+  return () => {
+    oyentesDescarte.delete(oyente)
+  }
+}
+
+/**
+ * Claves de fallo: identifican registro Y campo. Un cambio exitoso a un campo nunca
+ * descarta el fallo pendiente de otro campo (observaciones no pisa hmj_pizca).
+ */
+export const claveHojaGrado = (hojaId: string): string => `hoja:${hojaId}:grado`
+export const clavePlantaTh = (plantaId: string): string => `planta:${plantaId}:th`
+export const claveTablaCampo = (tablaId: string, campo: string): string => `tabla:${tablaId}:${campo}`
+
+/** Campos de la planta que van juntos en una clave: las tres columnas del GPS son un solo dato. */
+const campoDeClave = (campo: string): string => (campo.startsWith('gps_') ? 'gps' : campo)
+
+/**
+ * Parte un cambio de planta en un grupo por campo (el GPS va junto), cada uno con su clave,
+ * para que cada grupo se guarde y se reintente por separado.
+ */
+export function gruposDeCambioPlanta<T extends object>(plantaId: string, cambios: T): Array<{ clave: string; cambios: Partial<T> }> {
+  const grupos = new Map<string, Partial<T>>()
+  for (const [campo, valor] of Object.entries(cambios)) {
+    const clave = `planta:${plantaId}:${campoDeClave(campo)}`
+    grupos.set(clave, { ...grupos.get(clave), [campo]: valor } as Partial<T>)
+  }
+  return [...grupos].map(([clave, c]) => ({ clave, cambios: c }))
+}
+
 /** Solo para pruebas: deja la lista vacía. */
 export function olvidarFallos(): void {
   fallos.clear()
   ultimaPorClave.clear()
+  oyentesDescarte.clear()
   publicar()
 }
