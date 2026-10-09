@@ -6,7 +6,7 @@ import { descargarTodo, desdeConMargen, claveCursor, MARGEN_CURSOR_MS } from './
 import { aRegistroServidor, deFilaServidor, ENTIDAD_SERVIDOR, ORDEN_DESCARGA } from './entidades'
 import { enviarLote, enviarTodo } from './envio'
 import { crearMotor, esperaTrasFallo, ESPERAS_MS } from './motor'
-import { cerrarBases, nuevaBase, recorridoConPlanta, sembrar, servidorFalso } from './pruebas.util'
+import { cerrarBases, compararMarcas, nuevaBase, recorridoConPlanta, sembrar, servidorFalso } from './pruebas.util'
 import { descartarRechazo } from './rechazos'
 
 afterEach(async () => {
@@ -364,8 +364,48 @@ describe('descarga y cursor', () => {
     for (let i = 0; i < 2300; i++) servidor.poner('hoja', filaHoja(`h${String(i).padStart(5, '0')}`), new Date(Date.parse('2026-10-09T12:00:00Z') + i * 1000).toISOString())
     await descargarTodo(db, servidor)
     expect(await db.hojas.count()).toBe(2300)
-    const paginas = servidor.llamadas.filter((l) => l.tipo === 'descargar' && (l.detalle as { entidad: string }).entidad === 'hoja').map((l) => (l.detalle as { desplazamiento: number }).desplazamiento)
-    expect(paginas).toEqual([0, 1000, 2000])
+    const llamadas = servidor.llamadas.filter((l) => l.tipo === 'descargar' && (l.detalle as { entidad: string }).entidad === 'hoja').map((l) => l.detalle as { despuesDe: { id: string; server_updated_at: string } | null; limite: number })
+    expect(llamadas.map((l) => l.limite)).toEqual([1000, 1000, 1000])
+    // La primera página no tiene llave; las siguientes siguen de la última fila recibida, con su marca exacta.
+    expect(llamadas[0].despuesDe).toBeNull()
+    expect(llamadas[1].despuesDe?.id).toBe('h00999')
+    expect(llamadas[2].despuesDe?.id).toBe('h01999')
+    expect(llamadas[1].despuesDe?.server_updated_at).toBe(new Date(Date.parse('2026-10-09T12:00:00Z') + 999 * 1000).toISOString())
+  })
+
+  it('si una fila YA descargada se modifica entre una página y otra, ninguna fila se omite', async () => {
+    const db = nuevaBase()
+    let paginasPedidas = 0
+    const servidor = servidorFalso({
+      alDescargar: ({ entidad }) => {
+        if (entidad !== 'hoja') return
+        paginasPedidas++
+        // Justo antes de la página 2, otro dispositivo modifica la primera fila: sube su server_updated_at y pasa al final.
+        if (paginasPedidas === 2) servidor.poner('hoja', filaHoja('h000', { grado_gauhl: 6, updated_at: '2026-10-09T13:00:00+00:00' }), '2026-10-09T13:00:00.000001+00:00')
+      },
+    })
+    for (let i = 0; i < 35; i++) servidor.poner('hoja', filaHoja(`h${String(i).padStart(3, '0')}`), new Date(Date.parse('2026-10-09T12:00:00Z') + i * 1000).toISOString())
+    await descargarTodo(db, servidor, Date.now, 10)
+    const ids = (await db.hojas.toArray()).map((h) => h.id).sort()
+    expect(ids).toHaveLength(35)
+    expect(ids[34]).toBe('h034') // con paginación por posición, la fila 11 (h010) se habría quedado sin descargar
+    expect((await db.hojas.get('h010'))).toBeDefined()
+    // La fila modificada también llegó (al final) con su valor nuevo.
+    expect((await db.hojas.get('h000'))!.grado_gauhl).toBe(6)
+  })
+
+  it('filas con el mismo server_updated_at no se pierden entre páginas (desempata el id)', async () => {
+    const db = nuevaBase()
+    const servidor = servidorFalso()
+    for (let i = 0; i < 25; i++) servidor.poner('hoja', filaHoja(`h${String(i).padStart(3, '0')}`), '2026-10-09T12:00:00.123456+00:00')
+    await descargarTodo(db, servidor, Date.now, 10)
+    expect(await db.hojas.count()).toBe(25)
+  })
+
+  it('compara las marcas con precisión de microsegundos', () => {
+    expect(compararMarcas('2026-10-09T12:00:00.000001+00:00', '2026-10-09T12:00:00.000002+00:00')).toBe(-1)
+    expect(compararMarcas('2026-10-09T12:00:00.1+00:00', '2026-10-09T12:00:00.100000+00:00')).toBe(0)
+    expect(compararMarcas('2026-10-09T12:00:01Z', '2026-10-09T12:00:00.999999+00:00')).toBe(1)
   })
 })
 

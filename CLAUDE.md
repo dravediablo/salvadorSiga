@@ -194,6 +194,7 @@ La instalación es el punto más delicado del piloto: si un productor no logra i
 
 - TypeScript estricto, sin `any`; si alguno es inevitable, coméntalo.
 - Toda función de `src/dominio` tiene pruebas. Los casos con resultado conocido de cada hito son obligatorios.
+- **Semilla de desarrollo.** `supabase/seed.sql` tiene cuentas de prueba con contraseña conocida y SOLO se usa en el servidor local. Prohibido correr `supabase db reset --linked` o cualquier comando que cargue la semilla en un proyecto remoto; las migraciones al proyecto real se aplican solo con `supabase db push`. La semilla aborta si la base no es la local (guardia sobre el JWT secret público por defecto).
 - Secretos:
   - Nunca subas secretos al repositorio; usa `.env.local`.
   - En el cliente solo va la llave pública (anon) de Supabase. La llave `service_role` nunca va en el cliente.

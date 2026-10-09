@@ -4,7 +4,7 @@ import type { ItemLote, Servidor } from '../servidor'
 import { claveCursor } from '../descarga'
 import { crearMotor } from '../motor'
 import { nuevaBase } from '../pruebas.util'
-import { clienteDe, cuenta, dispositivo, limpiarCaptura, pausa, RANCHO, sql, TABLAS, type Dispositivo } from './entorno'
+import { clienteDe, cuenta, dispositivo, limpiarCaptura, pausa, RANCHO, sql, TABLAS, USUARIOS, type Dispositivo } from './entorno'
 
 /**
  * Integración contra Supabase local: dos (o tres) dispositivos simulados, cada uno con su base Dexie y su sesión.
@@ -164,6 +164,88 @@ describe('sincronización contra Supabase local', () => {
     expect(await op1.db.rechazos.count()).toBe(0)
     expect(await grado(op1, hoja)).toBe(delServidor)
     expect(await op1.db.cola.count()).toBe(0)
+  })
+
+  it('d2. "Reintentar envío": el admin cierra, op1 edita y es rechazado, el admin reabre, op1 reintenta → aplicado', async () => {
+    const op1 = await dispositivo('op1')
+    await op1.sincronizar()
+    const { recorrido, hojas } = await capturar(op1, { plantas: 1, tablas: 1 })
+    await op1.sincronizar()
+    const admin = await dispositivo('admin')
+    await admin.sincronizar()
+
+    await admin.recorridos.cerrar(recorrido.id)
+    await admin.sincronizar()
+    await op1.sincronizar() // op1 se entera del cierre
+    const hoja = hojas[0]
+    const original = gradoServidor(hoja)
+    const nuevo = original === 6 ? 0 : 6
+    await op1.plantas.calificarHoja(hoja, nuevo as 0)
+    await op1.sincronizar()
+    const rechazo = await op1.db.rechazos.get(['hojas', hoja])
+    expect(rechazo?.motivo).toMatch(/cerrado/)
+    expect(gradoServidor(hoja)).toBe(original)
+
+    await admin.recorridos.reabrir(recorrido.id) // el motivo del rechazo ya no existe
+    await admin.sincronizar()
+    await op1.sincronizar()
+    expect(await op1.db.rechazos.get(['hojas', hoja])).toBeDefined() // seguía esperando una decisión
+    const marca = (await op1.db.hojas.get(hoja))!.updated_at
+
+    await op1.motor.reintentarEnvio({ entidad: 'hojas', registro_id: hoja })
+    expect(op1.motor.obtenerEstado().ultimoError).toBeNull()
+    expect(await op1.db.rechazos.count()).toBe(0)
+    expect(await op1.db.cola.count()).toBe(0)
+    expect(gradoServidor(hoja)).toBe(nuevo)
+    expect(sql(`select updated_at from public.hoja where id = '${hoja}'`).startsWith(marca.slice(0, 10))).toBe(true)
+    expect((await op1.db.hojas.get(hoja))!.updated_at).toBe(marca) // la marca no cambió
+  })
+
+  it('e0. descarga por llave: 2500 hojas y una modificación hecha por otro dispositivo a mitad de la descarga no deja ninguna sin bajar', async () => {
+    const R = RANCHO
+    sql(`
+      insert into public.recorrido (id, created_at, updated_at, rancho_id, fecha, semana_iso, usuario_id, estado)
+        values ('e0000000-0000-4000-8000-0000000000ff', now(), now(), '${R}', '2026-10-05', '2026-W41', '${USUARIOS.op1.id}', 'en_curso');
+      insert into public.evaluacion_tabla (id, created_at, updated_at, rancho_id, recorrido_id, tabla_id)
+        values ('e1000000-0000-4000-8000-0000000000ff', now(), now(), '${R}', 'e0000000-0000-4000-8000-0000000000ff', '${TABLAS[0]}');
+      insert into public.planta (id, created_at, updated_at, rancho_id, evaluacion_tabla_id, numero_planta, total_hojas)
+        select ('e2000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid, now(), now(), '${R}', 'e1000000-0000-4000-8000-0000000000ff', n, 25
+        from generate_series(1, 100) n;
+      insert into public.hoja (id, created_at, updated_at, rancho_id, planta_id, numero_hoja, grado_gauhl)
+        select ('e3000000-0000-4000-8000-' || lpad((((p - 1) * 25) + h)::text, 12, '0'))::uuid, now(), now(), '${R}',
+               ('e2000000-0000-4000-8000-' || lpad(p::text, 12, '0'))::uuid, h, 1
+        from generate_series(1, 100) p, generate_series(1, 25) h;
+    `)
+    expect(cuenta('hoja')).toBe(2500)
+    const primera = sql('select id from public.hoja order by server_updated_at, id limit 1') // cae en la página 1
+
+    const op1 = await dispositivo('op1')
+    await op1.sincronizar() // op1 baja las 2500
+    expect((await op1.db.hojas.toArray()).length).toBe(2500)
+
+    let paginasDeHojas = 0
+    const admin = await dispositivo('admin', (real: Servidor): Servidor => ({
+      ...real,
+      descargar: async (entidad, desde, despuesDe, limite) => {
+        if (entidad === 'hoja') {
+          paginasDeHojas++
+          if (paginasDeHojas === 2) {
+            // Otro dispositivo modifica una fila que el admin YA recibió en la página 1: su server_updated_at sube y pasa al final.
+            await op1.plantas.calificarHoja(primera, 6)
+            await op1.sincronizar()
+          }
+        }
+        return real.descargar(entidad, desde, despuesDe, limite)
+      },
+    }))
+    await admin.sincronizar()
+    expect(paginasDeHojas).toBeGreaterThanOrEqual(3)
+    const idsServidor = sql('select id from public.hoja order by id').split('\n')
+    const idsAdmin = (await admin.db.hojas.toArray()).map((h) => h.id).sort()
+    expect(idsAdmin).toEqual(idsServidor) // ninguna hoja quedó sin descargar
+    expect(await grado(admin, primera)).toBe(6) // y la modificada también llegó
+    // Lo que el admin tiene coincide con el servidor en todas.
+    expect(sql("select count(*) from public.hoja where grado_gauhl <> 1")).toBe('1')
   })
 
   it('e. repetir la sincronización 3 veces seguidas no cambia nada ni duplica registros', async () => {

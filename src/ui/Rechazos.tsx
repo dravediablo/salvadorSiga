@@ -10,7 +10,7 @@ export function Rechazos() {
     <section className="seccion" aria-labelledby="rechazos">
       <h2 id="rechazos">Cambios rechazados por el servidor ({lista.length})</h2>
       <p className="peq">
-        Estos cambios no se enviarán solos. Tu captura sigue en este dispositivo. Si vuelves a editar el registro, se intenta de nuevo; si no, descarta tu cambio para traer la versión del servidor.
+        Estos cambios no se enviarán solos. Tu captura sigue en este dispositivo. Si vuelves a editar el registro, se intenta de nuevo. Si ya se resolvió lo que lo impedía (por ejemplo, reabrieron el recorrido), usa "Reintentar envío"; si no, descarta tu cambio para traer la versión del servidor.
       </p>
       <ul className="lista-rechazos">
         {lista.map(({ rechazo, descripcion }) => (
@@ -34,6 +34,17 @@ export function Rechazos() {
               }
             >
               Descartar mi cambio
+            </button>{' '}
+            <button
+              className="btn btn-s btn-p"
+              type="button"
+              onClick={() =>
+                conAviso(
+                  motor.reintentarEnvio(rechazo).then(() => avisar('El cambio volvió a la cola y se está enviando.')),
+                )
+              }
+            >
+              Reintentar envío
             </button>
           </li>
         ))}

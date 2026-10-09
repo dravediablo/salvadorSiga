@@ -2,7 +2,7 @@ import { alEscribir } from '../cola'
 import type { Rechazo, SigatokaDB } from '../db'
 import { descargarTodo } from './descarga'
 import { enviarTodo, TAMANO_LOTE } from './envio'
-import { descartarRechazo } from './rechazos'
+import { descartarRechazo, reintentarEnvio } from './rechazos'
 import type { Servidor } from './servidor'
 
 /** Espera entre reintentos tras un fallo del envío o de la descarga: 5 s, 15 s, 1 min, 5 min y de ahí en adelante 5 min. */
@@ -132,6 +132,11 @@ export function crearMotor(o: OpcionesMotor) {
     descartarRechazo(rechazo: Pick<Rechazo, 'entidad' | 'registro_id'>) {
       if (!o.servidor) return Promise.reject(new Error('Sin sesión no hay versión del servidor que traer.'))
       return descartarRechazo(o.db, o.servidor, rechazo)
+    },
+    /** "Reintentar envío": el cambio rechazado vuelve a la cola (sin cambiar su marca) y se sincroniza de inmediato. */
+    async reintentarEnvio(rechazo: Pick<Rechazo, 'entidad' | 'registro_id'>): Promise<void> {
+      await reintentarEnvio(o.db, rechazo)
+      await sincronizar({ ignorarEspera: true })
     },
     obtenerEstado: (): EstadoSincronizacion => estado,
     suscribir(oyente: () => void): () => void {

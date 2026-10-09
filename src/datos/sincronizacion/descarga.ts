@@ -2,7 +2,7 @@ import type { Registro } from '@/dominio'
 import type { Entidad, SigatokaDB } from '../db'
 import { aplicarRemotos, avanzarRelojHasta } from '../remoto'
 import { deFilaServidor, ENTIDAD_SERVIDOR, ORDEN_DESCARGA } from './entidades'
-import type { Servidor } from './servidor'
+import type { LlavePagina, Servidor } from './servidor'
 
 export const PAGINA = 1000
 /** Margen del cursor: se vuelven a pedir los cambios de los últimos 2 minutos, por si algún cambio se confirmó en el servidor con retraso. */
@@ -32,7 +32,7 @@ export function desdeConMargen(cursor: string | undefined): string | null {
  * con `aplicarRemoto` (sin pasar por la cola). El cursor de cada entidad es el mayor `server_updated_at` recibido.
  * Al final adelanta el generador de marcas hasta el `updated_at` remoto más alto (si no está a más de 24 h en el futuro).
  */
-export async function descargarTodo(db: SigatokaDB, servidor: Servidor, ahora: () => number = Date.now): Promise<ResumenDescarga> {
+export async function descargarTodo(db: SigatokaDB, servidor: Servidor, ahora: () => number = Date.now, pagina: number = PAGINA): Promise<ResumenDescarga> {
   const resumen: ResumenDescarga = { recibidos: 0, aplicados: 0, conservadosLocales: 0, aviso: null }
   let masAlta = 0
 
@@ -40,8 +40,9 @@ export async function descargarTodo(db: SigatokaDB, servidor: Servidor, ahora: (
     const cursorAnterior = (await db.ajustes.get(claveCursor(entidad)))?.valor as string | undefined
     const desde = desdeConMargen(cursorAnterior)
     let cursor = cursorAnterior
-    for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
-      const filas = await servidor.descargar(ENTIDAD_SERVIDOR[entidad], desde, desplazamiento, PAGINA)
+    let despuesDe: LlavePagina | null = null
+    for (;;) {
+      const filas = await servidor.descargar(ENTIDAD_SERVIDOR[entidad], desde, despuesDe, pagina)
       const remotos = filas.map((f) => deFilaServidor<Registro>(f))
       const r = await aplicarRemotos(db, entidad, remotos)
       resumen.recibidos += remotos.length
@@ -51,7 +52,10 @@ export async function descargarTodo(db: SigatokaDB, servidor: Servidor, ahora: (
         if (reg.server_updated_at && (!cursor || Date.parse(reg.server_updated_at) > Date.parse(cursor))) cursor = reg.server_updated_at
         masAlta = Math.max(masAlta, Date.parse(reg.updated_at))
       }
-      if (filas.length < PAGINA) break
+      if (filas.length < pagina) break
+      // La siguiente página sigue de la última fila recibida, con sus valores exactos.
+      const ultima = filas[filas.length - 1]
+      despuesDe = { server_updated_at: String(ultima.server_updated_at), id: String(ultima.id) }
     }
     if (cursor && cursor !== cursorAnterior) await db.ajustes.put({ clave: claveCursor(entidad), valor: cursor })
   }

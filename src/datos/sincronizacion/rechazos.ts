@@ -27,6 +27,22 @@ export async function descartarRechazo(db: SigatokaDB, servidor: Servidor, recha
   })
 }
 
+/**
+ * "Reintentar envío": devuelve el cambio a la cola con el `updated_at` ACTUAL del registro (sin cambiarlo) y borra el
+ * rechazo. Sirve cuando lo que motivó el rechazo ya se resolvió (p. ej. el administrador reabrió el recorrido).
+ * Devuelve false si ya no había rechazo o el registro no existe.
+ */
+export async function reintentarEnvio(db: SigatokaDB, rechazo: Pick<Rechazo, 'entidad' | 'registro_id'>): Promise<boolean> {
+  return db.transaction('rw', [db.table(rechazo.entidad), db.cola, db.rechazos], async () => {
+    if (!(await db.rechazos.get([rechazo.entidad, rechazo.registro_id]))) return false
+    const registro = (await db.table(rechazo.entidad).get(rechazo.registro_id)) as Registro | undefined
+    await db.rechazos.delete([rechazo.entidad, rechazo.registro_id])
+    if (!registro) return false
+    await db.cola.put({ entidad: rechazo.entidad, registro_id: rechazo.registro_id, updated_at: registro.updated_at })
+    return true
+  })
+}
+
 /** Texto legible de lo que se rechazó, p. ej. "Hoja 3 de la planta 7, tabla 4". */
 export async function describirRegistro(db: SigatokaDB, entidad: Entidad, id: string): Promise<string> {
   const tablaDeEvaluacion = async (evaluacionId: string): Promise<string> => {

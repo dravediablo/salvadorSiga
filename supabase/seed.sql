@@ -1,3 +1,19 @@
+-- ---------------------------------------------------------------------------
+-- GUARDIA: esta semilla trae cuentas con contraseña conocida y SOLO se carga en el servidor local.
+-- La base local (la imagen de Supabase que levanta `supabase start`) trae el JWT secret público por defecto de
+-- Supabase en el ajuste app.settings.jwt_secret; un proyecto remoto tiene el suyo, secreto. Si el valor no es el
+-- público, se aborta antes de crear nada. (Límite: un Supabase autoalojado que dejara el secreto por defecto
+-- pasaría la guardia; el proyecto real vive en Supabase alojado, así que no.)
+-- Nunca corras `supabase db reset --linked`; a producción solo `supabase db push` (CLAUDE.md).
+-- ---------------------------------------------------------------------------
+do $guardia$
+begin
+  if coalesce(current_setting('app.settings.jwt_secret', true), '') <> 'super-secret-jwt-token-with-at-least-32-characters-long' then
+    raise exception 'seed.sql abortado: esta base NO es la local de Supabase (el JWT secret no es el público por defecto). La semilla tiene cuentas con contraseña conocida y solo se carga con `supabase db reset` en local.';
+  end if;
+end
+$guardia$;
+
 -- Datos de desarrollo (se cargan con `supabase db reset`). NUNCA van a un proyecto real.
 -- TEMPORAL (hito 4): tres cuentas con contraseña para probar la sincronización; el hito 5 trae el inicio de sesión real.
 --
