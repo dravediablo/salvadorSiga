@@ -6,7 +6,7 @@ import {
 import { plantaConGrados, RANCHO } from './ayudas.test-util'
 import { nuevaAplicacion, nuevaEvaluacion, nuevoRecorrido, nuevaTabla } from './modelo'
 import { lunesDeSemana } from './fechas'
-import type { AplicacionTabla, GradoGauhl, Recorrido } from './tipos'
+import type { GradoGauhl, Recorrido } from './tipos'
 
 /** Crea un recorrido en la semana ISO dada con una evaluación de la tabla y plantas del grado indicado. */
 function evaluar(semana: string, tablaId: string, grado: GradoGauhl, extra: Partial<Recorrido> = {}) {
@@ -74,42 +74,47 @@ describe('previa', () => {
 describe('aplicaciones', () => {
   const t1 = nuevaTabla({ rancho_id: RANCHO, codigo: 'T1' })
   const t2 = nuevaTabla({ rancho_id: RANCHO, codigo: 'T2' })
-  const app = (fecha: string, frac: string) => nuevaAplicacion({ rancho_id: RANCHO, fecha, grupo_frac: frac })
-  const enlazar = (a: { id: string }, ...ts: Array<{ id: string }>): AplicacionTabla[] =>
-    ts.map((t) => ({ aplicacion_id: a.id, tabla_id: t.id }))
+  const app = (fecha: string, frac: string, ...ts: Array<{ id: string }>) =>
+    nuevaAplicacion({ rancho_id: RANCHO, fecha, grupo_frac: frac, tabla_ids: ts.map((t) => t.id) })
 
   it('dos aplicaciones consecutivas FRAC 11 en la misma tabla → 1 alerta', () => {
-    const a = app('2026-07-01', '11')
-    const b = app('2026-07-15', '11')
-    const r = repeticionesFrac([t1], [a, b], [...enlazar(a, t1), ...enlazar(b, t1)])
+    const a = app('2026-07-01', '11', t1)
+    const b = app('2026-07-15', '11', t1)
+    const r = repeticionesFrac([t1], [a, b])
     expect(r).toHaveLength(1)
     expect(r[0]).toMatchObject({ tabla: t1, a: b, b: a })
   })
   it('FRAC 11 en una tabla y FRAC 11 en otra → 0 alertas', () => {
-    const a = app('2026-07-01', '11')
-    const b = app('2026-07-15', '11')
-    expect(repeticionesFrac([t1, t2], [a, b], [...enlazar(a, t1), ...enlazar(b, t2)])).toHaveLength(0)
+    const a = app('2026-07-01', '11', t1)
+    const b = app('2026-07-15', '11', t2)
+    expect(repeticionesFrac([t1, t2], [a, b])).toHaveLength(0)
+  })
+  it('una aplicación a varias tablas cuenta en cada una', () => {
+    const a = app('2026-07-01', '11', t1, t2)
+    const b = app('2026-07-15', '11', t2)
+    const r = repeticionesFrac([t1, t2], [a, b])
+    expect(r).toHaveLength(1)
+    expect(r[0].tabla).toBe(t2)
   })
   it('grupos distintos, FRAC vacío y tablas eliminadas no alertan', () => {
-    const a = app('2026-07-01', '11')
-    const b = app('2026-07-15', '3')
-    const c = app('2026-07-20', '')
-    const d = app('2026-07-25', '')
-    const links = [...enlazar(a, t1), ...enlazar(b, t1), ...enlazar(c, t1), ...enlazar(d, t1)]
-    expect(repeticionesFrac([t1], [a, b, c, d], links)).toHaveLength(0)
-    const e = app('2026-08-01', '3')
-    const borrada = { ...t2, eliminado: true }
-    expect(repeticionesFrac([borrada], [b, e], [...enlazar(b, t2), ...enlazar(e, t2)])).toHaveLength(0)
+    const a = app('2026-07-01', '11', t1)
+    const b = app('2026-07-15', '3', t1)
+    const c = app('2026-07-20', '', t1)
+    const d = app('2026-07-25', '', t1)
+    expect(repeticionesFrac([t1], [a, b, c, d])).toHaveLength(0)
+    const e = app('2026-08-01', '3', t2)
+    const f = app('2026-08-08', '3', t2)
+    expect(repeticionesFrac([{ ...t2, eliminado: true }], [e, f])).toHaveLength(0)
   })
   it('aplicacionesDeTabla ordena por fecha y omite eliminadas; ultimaAplicacion respeta "hasta"', () => {
-    const a = app('2026-07-15', '1')
-    const b = app('2026-07-01', '2')
-    const c = { ...app('2026-07-20', '3'), eliminado: true }
-    const links = [...enlazar(a, t1), ...enlazar(b, t1), ...enlazar(c, t1)]
-    expect(aplicacionesDeTabla([a, b, c], links, t1.id).map((x) => x.fecha)).toEqual(['2026-07-01', '2026-07-15'])
-    expect(ultimaAplicacion([a, b, c], links, t1.id)).toBe(a)
-    expect(ultimaAplicacion([a, b, c], links, t1.id, '2026-07-10')).toBe(b)
-    expect(ultimaAplicacion([a, b, c], links, t1.id, '2026-06-01')).toBeNull()
+    const a = app('2026-07-15', '1', t1)
+    const b = app('2026-07-01', '2', t1)
+    const c = { ...app('2026-07-20', '3', t1), eliminado: true }
+    const otra = app('2026-07-05', '4', t2)
+    expect(aplicacionesDeTabla([a, b, c, otra], t1.id).map((x) => x.fecha)).toEqual(['2026-07-01', '2026-07-15'])
+    expect(ultimaAplicacion([a, b, c, otra], t1.id)).toBe(a)
+    expect(ultimaAplicacion([a, b, c, otra], t1.id, '2026-07-10')).toBe(b)
+    expect(ultimaAplicacion([a, b, c, otra], t1.id, '2026-06-01')).toBeNull()
   })
 })
 

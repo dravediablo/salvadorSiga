@@ -118,6 +118,8 @@ export interface PlantaConHojas {
 export interface Aplicacion extends Registro {
   rancho_id: string
   fecha: string
+  /** Tablas tratadas. Van dentro de la aplicación (sin tabla intermedia) para que una edición sea una sola escritura. */
+  tabla_ids: string[]
   producto: string
   ingrediente_activo: string
   grupo_frac: string
@@ -130,12 +132,8 @@ export interface Aplicacion extends Registro {
   observaciones: string
 }
 
-export interface AplicacionTabla {
-  aplicacion_id: string
-  tabla_id: string
-}
-
-export interface ClimaDiario {
+/** Único por (rancho_id, fecha); lo escribe el servidor con upsert sobre esa restricción. */
+export interface ClimaDiario extends Registro {
   rancho_id: string
   fecha: string
   temp_max: number | null

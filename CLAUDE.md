@@ -131,12 +131,16 @@ referencia/
 | `evaluacion_tabla` | id, rancho_id, recorrido_id, tabla_id, tipo (`stover` \| `preaviso`), hora_inicio, hora_fin | |
 | `planta` | id, rancho_id, evaluacion_tabla_id, numero_planta, total_hojas, hmj_pizca, hmj_estria, hmj_mancha, observaciones, gps_lat, gps_lon, gps_precision_m | |
 | `hoja` | id, rancho_id, planta_id, numero_hoja, grado_gauhl (0–6 o null) | |
-| `aplicacion` | id, rancho_id, fecha, producto, ingrediente_activo, grupo_frac, dosis, unidad, volumen_mezcla, metodo, usuario_id, responsable, observaciones | |
-| `aplicacion_tabla` | aplicacion_id, tabla_id | Relación de muchos a muchos |
-| `clima_diario` | rancho_id, fecha, temp_max, temp_min, temp_media, hr_media, precipitacion, horas_hr_alta, fuente | |
+| `aplicacion` | id, rancho_id, fecha, tabla_ids (`uuid[]`), producto, ingrediente_activo, grupo_frac, dosis, unidad, volumen_mezcla, metodo, usuario_id, responsable, observaciones | Ver nota 1 |
+| `clima_diario` | id, rancho_id, fecha, temp_max, temp_min, temp_media, hr_media, precipitacion, horas_hr_alta, fuente | Ver nota 2 |
 | `planta_marcada` | id, rancho_id, tabla_id, fecha_marcado | Futuro: preaviso |
 
-Además, todas las entidades llevan `created_at`, `updated_at`, `server_updated_at` y `eliminado`.
+Además, todas las entidades llevan `id` (UUID), `created_at`, `updated_at`, `server_updated_at` y `eliminado`. Sin excepciones: la sincronización trata todo registro igual.
+
+1. **Tablas de una aplicación.** Van en el arreglo `tabla_ids` dentro de la misma aplicación; no hay tabla intermedia.
+   - Así, cambiar las tablas de una aplicación es una sola escritura y la regla de "gana la más reciente" se aplica completa. Con una tabla intermedia, dos celulares editando la misma aplicación podían dejar una mezcla de ambas versiones.
+   - En Postgres: índice GIN sobre `tabla_ids`, y un trigger que rechace ids de tablas que no pertenezcan al mismo `rancho_id`.
+2. **Clima.** Restricción única `(rancho_id, fecha)`. Lo escribe el servidor (tarea diaria) con *upsert* sobre esa restricción; el cliente solo lo descarga. Si más adelante se permite importar CSV, también será *upsert* sobre `(rancho_id, fecha)`.
 
 ## PWA: instalación desde un enlace
 
@@ -177,6 +181,9 @@ La instalación es el punto más delicado del piloto: si un productor no logra i
 - Secretos:
   - Nunca subas secretos al repositorio; usa `.env.local`.
   - En el cliente solo va la llave pública (anon) de Supabase. La llave `service_role` nunca va en el cliente.
+- **Datos reales de productores** (KMZ de ranchos, exportaciones, respaldos):
+  - Nunca van en el repositorio. Van en `datos-locales/`, que está en `.gitignore`.
+  - Las pruebas usan datos sintéticos en `src/**/__fixtures__/`, por ejemplo un KMZ inventado de 3 polígonos.
 - Commits pequeños y descriptivos, en español. Una rama por hito: `hito-N-descripcion`.
 - Comandos que siempre deben pasar antes de reportar: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`.
 
@@ -187,11 +194,11 @@ Trabajas un hito a la vez. Un supervisor (Claude, en otra conversación con el r
 ### Hitos
 
 1. Base del proyecto, dominio portado con pruebas y cascarón PWA instalable desplegado en Vercel.
-2. Almacenamiento local (Dexie y repositorios) e interfaz de captura portada del prototipo, solo local.
+2. Almacenamiento local (Dexie, repositorios y cola de pendientes), importación de KMZ e interfaz de captura portada del prototipo, solo local.
 3. Esquema de Postgres en Supabase con reglas de acceso por rancho y pruebas de esas reglas.
 4. Sincronización: cola de pendientes, envío, descarga y conflictos.
 5. Inicio de sesión con código de 6 dígitos por correo, creación de rancho e invitación de operadores.
-6. Tablero, aplicaciones, exportación e importación de KMZ portados del prototipo.
+6. Tablero, aplicaciones y exportación portados del prototipo.
 7. Clima diario automático (Open-Meteo) desde el servidor.
 8. Preparación del piloto: aviso de privacidad, registro de errores, respaldos, guía de una página y pruebas en dispositivos reales.
 
@@ -213,6 +220,44 @@ Guarda el reporte en `docs/reportes/HITO-N.md` con estas secciones:
 5. **Salida completa** de `typecheck`, `lint`, `test` y `build`.
 6. **Archivos clave para revisión:** ruta y una línea de qué contiene.
 7. **Dudas o riesgos abiertos.**
+
+### Handoff para el supervisor (obligatorio)
+
+Cada vez que termines un hito, o te detengas porque falta algo, tu último mensaje debe ser **un solo bloque de código** listo para copiar con un botón y pegar al supervisor. No escribas nada después del bloque.
+
+- **Formato del bloque.** Ábrelo y ciérralo con **cuatro** acentos graves y `text` (````` ````text `````), para que los bloques de código de adentro, con tres acentos, no lo corten.
+- **Contenido.** Debe bastar por sí solo: el supervisor no tiene acceso al repositorio.
+- **Archivos.** Incluye completos los que el hito pida revisar. Si alguno pasa de 300 líneas, incluye solo las partes relevantes e indica qué omitiste.
+
+Plantilla:
+
+````text
+HANDOFF — Hito N: <título>
+Rama: <rama> · Commits: <n> · Último commit: <hash corto> <mensaje>
+Estado: COMPLETO | INCOMPLETO (falta: …)
+
+## Verificación
+typecheck: ok/falla · lint: ok/falla · test: <n> en verde (TZ probadas: …) · build: ok/falla · cobertura dominio: <x> %
+
+## Criterios de aceptación
+- [x] … (evidencia en una línea)
+- [ ] … (por qué no)
+
+## Decisiones y dependencias nuevas
+- …
+
+## Desviaciones
+- …
+
+## Necesito del responsable o del supervisor
+1. …
+
+## Archivos para revisión
+### ruta/archivo.ts
+```ts
+<contenido>
+```
+````
 
 ## Decisiones pendientes (no resolver por cuenta propia)
 

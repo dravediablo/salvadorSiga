@@ -1,9 +1,9 @@
 import { promedio } from './calculos'
 import { semanaISO, sumarDias } from './fechas'
-import type { ClimaDiario } from './tipos'
+import type { ClimaDiario, Registro } from './tipos'
 
-/** Un día de clima aún sin rancho (el rancho lo asigna quien lo guarda). */
-export type DiaClima = Omit<ClimaDiario, 'rancho_id'>
+/** Un día de clima aún sin rancho ni campos de registro (los asigna quien lo guarda). */
+export type DiaClima = Omit<ClimaDiario, keyof Registro | 'rancho_id'>
 
 type CampoNumerico = 'temp_max' | 'temp_min' | 'temp_media' | 'hr_media' | 'precipitacion' | 'horas_hr_alta'
 const CAMPOS_NUMERICOS: CampoNumerico[] = ['temp_max', 'temp_min', 'temp_media', 'hr_media', 'precipitacion', 'horas_hr_alta']

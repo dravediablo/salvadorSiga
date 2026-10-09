@@ -5,6 +5,5 @@ coverage
 .DS_Store
 .env*.local
 *.tsbuildinfo
-# copias sueltas anteriores a la estructura de CLAUDE.md
-/HITO-1.md
-/prototipo.html
+# datos reales de productores (CLAUDE.md): nunca al repositorio
+datos-locales/

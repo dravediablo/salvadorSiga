@@ -102,6 +102,7 @@ export function nuevaAplicacion(p: Pick<Aplicacion, 'rancho_id'> & Partial<Aplic
   return {
     ...base(),
     fecha: hoy(),
+    tabla_ids: [],
     producto: '',
     ingrediente_activo: '',
     grupo_frac: '',

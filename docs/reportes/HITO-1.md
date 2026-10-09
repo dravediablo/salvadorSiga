@@ -229,3 +229,15 @@ Lines        : 99.6% ( 251/252 )
 - **Persistencia en Safari:** `navigator.storage.persist()` puede responder "rechazada" en iOS aunque los datos se conserven; hay que interpretarlo con los resultados de los celulares reales.
 - **Decisiones pendientes de `CLAUDE.md` sin tocar:** promedio de HMJ (hay una sola función para cambiarlo), umbrales definitivos del semáforo, preaviso biológico y texto de privacidad. Los umbrales 20/30 de `nuevoRancho` son provisionales.
 - **Cambios al modelo de datos propuestos (no aplicados):** ninguno. `ClimaDiario` y `AplicacionTabla` no heredan `Registro` porque `CLAUDE.md` no les asigna `id`; `CLAUDE.md` sí dice que todas las entidades llevan `created_at`, `updated_at`, `server_updated_at` y `eliminado`, así que conviene decidir qué hacer con ellas antes del hito 3.
+
+## 8. Ajustes posteriores al hito (2026-10-09)
+
+Aplicados después de la revisión, antes de empezar el hito 2:
+
+- `CLAUDE.md` reemplazado por la versión nueva (el KMZ pasa al hito 2; `tabla_ids` dentro de `aplicacion`; `id` en todas las entidades; datos reales fuera del repositorio).
+- Modelo: `Aplicacion.tabla_ids: string[]` y se elimina `AplicacionTabla`; `ClimaDiario` pasa a `extends Registro` (con `id`). `aplicacionesDeTabla`, `ultimaAplicacion` y `repeticionesFrac` ya no reciben enlaces. Se agregó una prueba de una aplicación sobre varias tablas (78 pruebas).
+- Copias sueltas de `HITO-1.md` y `prototipo.html` en la raíz borradas (eran idénticas a las de `docs/hitos/` y `referencia/`).
+- El KMZ real se movió a `datos-locales/`, que está en `.gitignore` (nunca estuvo en el historial de Git).
+- KMZ sintético de 3 polígonos en `src/datos/__fixtures__/sintetico.kmz`, generado por `scripts/generar-kmz-sintetico.mjs`.
+- `HITO-2.md` guardado en `docs/hitos/`.
+- La lista de ajustes original no llegó a esta sesión; se aplicó según los seis puntos que la nombran. El punto "revisión de la fuente" no se pudo interpretar y queda pendiente de aclarar.

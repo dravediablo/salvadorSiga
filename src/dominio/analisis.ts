@@ -1,6 +1,6 @@
 import { resumen, type Resumen } from './calculos'
 import { semanaISO, sumarSemanas } from './fechas'
-import type { Aplicacion, AplicacionTabla, EvaluacionTabla, PlantaConHojas, Recorrido, Tabla } from './tipos'
+import type { Aplicacion, EvaluacionTabla, PlantaConHojas, Recorrido, Tabla } from './tipos'
 
 export interface Indicador {
   k: string
@@ -98,18 +98,12 @@ export function previa(serieTabla: Map<string, PuntoSerie> | undefined, semana: 
 }
 
 /** Aplicaciones vivas de una tabla, de la más antigua a la más reciente. */
-export function aplicacionesDeTabla(aplicaciones: Aplicacion[], enlaces: AplicacionTabla[], tablaId: string): Aplicacion[] {
-  const ids = new Set(enlaces.filter((e) => e.tabla_id === tablaId).map((e) => e.aplicacion_id))
-  return aplicaciones.filter((a) => !a.eliminado && ids.has(a.id)).sort((a, b) => a.fecha.localeCompare(b.fecha))
+export function aplicacionesDeTabla(aplicaciones: Aplicacion[], tablaId: string): Aplicacion[] {
+  return aplicaciones.filter((a) => !a.eliminado && a.tabla_ids.includes(tablaId)).sort((a, b) => a.fecha.localeCompare(b.fecha))
 }
 
-export function ultimaAplicacion(
-  aplicaciones: Aplicacion[],
-  enlaces: AplicacionTabla[],
-  tablaId: string,
-  hasta?: string,
-): Aplicacion | null {
-  const l = aplicacionesDeTabla(aplicaciones, enlaces, tablaId).filter((a) => !hasta || a.fecha <= hasta)
+export function ultimaAplicacion(aplicaciones: Aplicacion[], tablaId: string, hasta?: string): Aplicacion | null {
+  const l = aplicacionesDeTabla(aplicaciones, tablaId).filter((a) => !hasta || a.fecha <= hasta)
   return l.length ? l[l.length - 1] : null
 }
 
@@ -120,11 +114,11 @@ export interface RepeticionFrac {
 }
 
 /** Dos aplicaciones consecutivas de una misma tabla con el mismo grupo FRAC. */
-export function repeticionesFrac(tablas: Tabla[], aplicaciones: Aplicacion[], enlaces: AplicacionTabla[]): RepeticionFrac[] {
+export function repeticionesFrac(tablas: Tabla[], aplicaciones: Aplicacion[]): RepeticionFrac[] {
   const salida: RepeticionFrac[] = []
   for (const t of tablas) {
     if (t.eliminado) continue
-    const l = aplicacionesDeTabla(aplicaciones, enlaces, t.id)
+    const l = aplicacionesDeTabla(aplicaciones, t.id)
     for (let i = 1; i < l.length; i++)
       if (l[i].grupo_frac && l[i].grupo_frac === l[i - 1].grupo_frac) salida.push({ tabla: t, a: l[i], b: l[i - 1] })
   }
