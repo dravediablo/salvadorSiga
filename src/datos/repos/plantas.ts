@@ -1,5 +1,6 @@
 import { nuevaHoja, nuevaPlanta, type GradoGauhl, type Hoja, type Planta } from '@/dominio'
 import { guardar, guardarVarios, escribir } from '../cola'
+import { RegistroInexistente } from '../errores'
 import type { SigatokaDB } from '../db'
 
 /** Campos de la planta que la interfaz puede cambiar directamente (el TH tiene su propia operación). */
@@ -49,7 +50,7 @@ export function crearRepoPlantas(db: SigatokaDB) {
     crear(evaluacionId: string): Promise<{ planta: Planta; hojas: Hoja[] }> {
       return escribir(db, async () => {
         const ev = await db.evaluaciones.get(evaluacionId)
-        if (!ev || ev.eliminado) throw new Error('La tabla del recorrido ya no existe.')
+        if (!ev || ev.eliminado) throw new RegistroInexistente('evaluacion')
         const plantas = (await db.plantas.where('evaluacion_tabla_id').equals(evaluacionId).toArray()).filter((p) => !p.eliminado)
         const ultima = plantas.sort((a, b) => b.numero_planta - a.numero_planta)[0]
         const numero = ultima ? ultima.numero_planta + 1 : 1
@@ -64,7 +65,7 @@ export function crearRepoPlantas(db: SigatokaDB) {
     actualizar(plantaId: string, cambios: CambiosPlanta): Promise<Planta> {
       return escribir(db, async () => {
         const p = await db.plantas.get(plantaId)
-        if (!p || p.eliminado) throw new Error('La planta ya no existe.')
+        if (!p || p.eliminado) throw new RegistroInexistente('planta')
         return guardar(db, 'plantas', { ...p, ...cambios })
       })
     },
@@ -73,7 +74,7 @@ export function crearRepoPlantas(db: SigatokaDB) {
     cambiarTotalHojas(plantaId: string, th: number): Promise<Hoja[]> {
       return escribir(db, async () => {
         const p = await db.plantas.get(plantaId)
-        if (!p || p.eliminado) throw new Error('La planta ya no existe.')
+        if (!p || p.eliminado) throw new RegistroInexistente('planta')
         if (!Number.isInteger(th) || th < 1) throw new Error('El total de hojas debe ser un número entero mayor que cero.')
         const existentes = await db.hojas.where('planta_id').equals(plantaId).toArray()
         const cambios = hojasParaNuevoTh(p, existentes, th)
@@ -86,7 +87,7 @@ export function crearRepoPlantas(db: SigatokaDB) {
     calificarHoja(hojaId: string, grado: GradoGauhl | null): Promise<Hoja> {
       return escribir(db, async () => {
         const h = await db.hojas.get(hojaId)
-        if (!h || h.eliminado) throw new Error('La hoja ya no existe.')
+        if (!h || h.eliminado) throw new RegistroInexistente('hoja')
         return guardar(db, 'hojas', { ...h, grado_gauhl: grado })
       })
     },

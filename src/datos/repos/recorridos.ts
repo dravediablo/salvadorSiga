@@ -1,5 +1,6 @@
 import { nuevaEvaluacion, nuevoRecorrido, type EvaluacionTabla, type Recorrido } from '@/dominio'
 import { escribir, guardar, guardarVarios } from '../cola'
+import { RegistroInexistente } from '../errores'
 import type { SigatokaDB } from '../db'
 
 const ahora = (): string => new Date().toISOString()
@@ -7,7 +8,7 @@ const ahora = (): string => new Date().toISOString()
 export function crearRepoRecorridos(db: SigatokaDB) {
   async function recorridoVivo(id: string): Promise<Recorrido> {
     const r = await db.recorridos.get(id)
-    if (!r || r.eliminado) throw new Error('El recorrido ya no existe.')
+    if (!r || r.eliminado) throw new RegistroInexistente('recorrido')
     return r
   }
 
@@ -40,7 +41,7 @@ export function crearRepoRecorridos(db: SigatokaDB) {
     terminarTabla(evaluacionId: string): Promise<EvaluacionTabla> {
       return escribir(db, async () => {
         const e = await db.evaluaciones.get(evaluacionId)
-        if (!e || e.eliminado) throw new Error('La tabla del recorrido ya no existe.')
+        if (!e || e.eliminado) throw new RegistroInexistente('evaluacion')
         return guardar(db, 'evaluaciones', { ...e, hora_fin: ahora() })
       })
     },

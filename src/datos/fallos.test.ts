@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { esperarEscrituras } from './cola'
 import { SigatokaDB } from './db'
-import { enSegundoPlano, fallosPendientes, hayFallos, mensajeDeError, olvidarFallos, reintentar, suscribirFallos } from './fallos'
+import { RegistroInexistente } from './errores'
+import { alDescartar, claveHojaGrado, clavePlantaTh, claveTablaCampo, enSegundoPlano, fallosPendientes, gruposDeCambioPlanta, hayFallos, mensajeDeError, olvidarFallos, reintentar, suscribirFallos } from './fallos'
 import { crearRepoPlantas } from './repos/plantas'
 import { crearRepoRancho } from './repos/rancho'
 import { crearRepoRecorridos } from './repos/recorridos'
@@ -87,6 +88,47 @@ describe('escrituras en segundo plano que fallan', () => {
   })
 })
 
+describe('claves de fallo por registro y campo', () => {
+  it('cada campo tiene su clave; el GPS va junto', () => {
+    expect(gruposDeCambioPlanta('p1', { hmj_pizca: 2 })).toEqual([{ clave: 'planta:p1:hmj_pizca', cambios: { hmj_pizca: 2 } }])
+    expect(gruposDeCambioPlanta('p1', { observaciones: 'x' })[0].clave).toBe('planta:p1:observaciones')
+    expect(gruposDeCambioPlanta('p1', { numero_planta: 3 })[0].clave).toBe('planta:p1:numero_planta')
+    expect(gruposDeCambioPlanta('p1', { gps_lat: 1, gps_lon: 2, gps_precision_m: 5 })).toEqual([
+      { clave: 'planta:p1:gps', cambios: { gps_lat: 1, gps_lon: 2, gps_precision_m: 5 } },
+    ])
+    // Varios campos a la vez se separan en un grupo por campo.
+    expect(gruposDeCambioPlanta('p1', { hmj_pizca: 1, hmj_estria: 2 }).map((g) => g.clave)).toEqual(['planta:p1:hmj_pizca', 'planta:p1:hmj_estria'])
+    expect(claveHojaGrado('h1')).toBe('hoja:h1:grado')
+    expect(clavePlantaTh('p1')).toBe('planta:p1:th')
+    expect(claveTablaCampo('t1', 'activa')).toBe('tabla:t1:activa')
+  })
+
+  it('fallo en hmj_pizca + escritura exitosa de observaciones de la misma planta → el fallo de hmj_pizca sigue pendiente', async () => {
+    let falla = true
+    const [pizca] = gruposDeCambioPlanta('p1', { hmj_pizca: 2 })
+    const [obs] = gruposDeCambioPlanta('p1', { observaciones: 'hoja rota' })
+    await enSegundoPlano(async () => { if (falla) throw new Error('disco lleno') }, pizca.clave)
+    await enSegundoPlano(async () => undefined, obs.clave)
+    expect(fallosPendientes().map((f) => f.clave)).toEqual(['planta:p1:hmj_pizca'])
+    falla = false
+    await reintentar()
+    expect(hayFallos()).toBe(false)
+  })
+})
+
+describe('fallos obsoletos', () => {
+  it('RegistroInexistente se descarta sin quedar como fallo y se informa una vez', async () => {
+    const avisos: string[] = []
+    const baja = alDescartar((a) => avisos.push(a))
+    await enSegundoPlano(async () => { throw new Error('disco lleno') }, 'hoja:1:grado')
+    expect(hayFallos()).toBe(true)
+    await enSegundoPlano(async () => { throw new RegistroInexistente('hoja') }, 'hoja:1:grado')
+    expect(hayFallos()).toBe(false)
+    expect(avisos).toEqual(['Se descartó un cambio a una hoja que ya no existe.'])
+    baja()
+  })
+})
+
 describe('con la base real (fallo simulado al escribir)', () => {
   const abiertas: SigatokaDB[] = []
   afterEach(async () => {
@@ -145,5 +187,51 @@ describe('con la base real (fallo simulado al escribir)', () => {
     expect(await intentarCerrar()).toBe('cerrado')
     expect((await db.hojas.get(hoja.id))?.grado_gauhl).toBe(2)
     expect((await db.recorridos.get(recorrido.id))?.estado).toBe('cerrado')
+  })
+
+  it('hoja 11 que falla y luego se baja el TH a 10: al reintentar se descarta, se informa una vez y se puede cerrar el recorrido', async () => {
+    const { db, plantas, recorridos, recorrido, hoja } = await sembrar()
+    const planta = (await db.plantas.toArray())[0]
+    await plantas.cambiarTotalHojas(planta.id, 11)
+    const h11 = (await db.hojas.where('planta_id').equals(planta.id).toArray()).find((h) => h.numero_hoja === 11)!
+    void hoja
+    const avisos: string[] = []
+    const baja = alDescartar((a) => avisos.push(a))
+
+    const espia = vi.spyOn(db.cola, 'put').mockRejectedValue(new Error('disco lleno'))
+    await enSegundoPlano(() => plantas.calificarHoja(h11.id, 3), claveHojaGrado(h11.id))
+    expect(hayFallos()).toBe(true)
+    espia.mockRestore()
+
+    await enSegundoPlano(() => plantas.cambiarTotalHojas(planta.id, 10), clavePlantaTh(planta.id)) // la hoja 11 se elimina
+    expect(hayFallos()).toBe(true) // el fallo de la hoja 11 sigue ahí hasta reintentar
+
+    await reintentar()
+    expect(hayFallos()).toBe(false)
+    expect(avisos).toEqual(['Se descartó un cambio a una hoja que ya no existe.'])
+    expect((await db.hojas.get(h11.id))?.grado_gauhl).toBeNull()
+    await recorridos.cerrar(recorrido.id)
+    expect((await db.recorridos.get(recorrido.id))?.estado).toBe('cerrado')
+    baja()
+  })
+
+  it('si se elimina la planta, el cambio pendiente a su hoja también se descarta', async () => {
+    const { db, plantas, hoja } = await sembrar()
+    const planta = (await db.plantas.toArray())[0]
+    const espia = vi.spyOn(db.cola, 'put').mockRejectedValue(new Error('disco lleno'))
+    await enSegundoPlano(() => plantas.calificarHoja(hoja.id, 1), claveHojaGrado(hoja.id))
+    espia.mockRestore()
+    await plantas.eliminar(planta.id)
+    await reintentar()
+    expect(hayFallos()).toBe(false)
+  })
+
+  it('los repositorios lanzan RegistroInexistente (error tipado) para hojas, plantas y tablas eliminadas', async () => {
+    const { db, plantas, hoja } = await sembrar()
+    const planta = (await db.plantas.toArray())[0]
+    await plantas.eliminar(planta.id)
+    await expect(plantas.calificarHoja(hoja.id, 1)).rejects.toBeInstanceOf(RegistroInexistente)
+    await expect(plantas.actualizar(planta.id, { hmj_pizca: 1 })).rejects.toMatchObject({ entidad: 'planta' })
+    await expect(plantas.cambiarTotalHojas(planta.id, 5)).rejects.toBeInstanceOf(RegistroInexistente)
   })
 })
