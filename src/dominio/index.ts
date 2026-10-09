@@ -1,0 +1,7 @@
+export * from './tipos'
+export * from './fechas'
+export * from './modelo'
+export * from './calculos'
+export * from './analisis'
+export * from './clima'
+export * from './geo'
