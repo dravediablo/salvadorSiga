@@ -1,6 +1,7 @@
 import type { EvaluacionTabla, Hoja, Planta, PlantaConHojas, Rancho, Recorrido, Tabla, Usuario } from '@/dominio'
 import { contarPendientes } from './cola'
-import type { Entidad, Rechazo, SigatokaDB } from './db'
+import type { Rechazo, SigatokaDB } from './db'
+import { recorridosConAlgoPendiente } from './sincronizacion/pendientesPorRecorrido'
 import { describirRegistro } from './sincronizacion/rechazos'
 
 const vivo = <T extends { eliminado: boolean }>(x: T | undefined): x is T => !!x && !x.eliminado
@@ -55,22 +56,6 @@ export function crearConsultas(db: SigatokaDB) {
     return salida
   }
 
-  /** ¿Ni el recorrido ni sus evaluaciones, plantas u hojas (incluidas las eliminadas) están en la cola o en rechazos? */
-  async function sinNadaPendiente(recorrido: Recorrido): Promise<boolean> {
-    const llaves: Array<[Entidad, string]> = [['recorridos', recorrido.id]]
-    const evs = await db.evaluaciones.where('recorrido_id').equals(recorrido.id).toArray()
-    for (const e of evs) {
-      llaves.push(['evaluaciones', e.id])
-      const ps = await db.plantas.where('evaluacion_tabla_id').equals(e.id).toArray()
-      for (const p of ps) {
-        llaves.push(['plantas', p.id])
-        for (const h of await db.hojas.where('planta_id').equals(p.id).toArray()) llaves.push(['hojas', h.id])
-      }
-    }
-    const [enCola, enRechazos] = await Promise.all([db.cola.bulkGet(llaves), db.rechazos.bulkGet(llaves)])
-    return enCola.every((x) => !x) && enRechazos.every((x) => !x)
-  }
-
   async function nombreUsuario(id: string): Promise<string> {
     return (await db.usuarios.get(id))?.nombre ?? 'Usuario'
   }
@@ -91,6 +76,12 @@ export function crearConsultas(db: SigatokaDB) {
     /** Todos los recorridos vivos con sus conteos, del más reciente al más antiguo. */
     async tarjetasRecorridos(): Promise<TarjetaRecorrido[]> {
       const recs = (await db.recorridos.toArray()).filter(vivo)
+      const pendientes = await recorridosConAlgoPendiente(db)
+      const nombres = new Map<string, string>()
+      const operadorDe = async (id: string): Promise<string> => {
+        if (!nombres.has(id)) nombres.set(id, await nombreUsuario(id))
+        return nombres.get(id) as string
+      }
       recs.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.created_at.localeCompare(a.created_at))
       const salida: TarjetaRecorrido[] = []
       for (const recorrido of recs) {
@@ -99,8 +90,8 @@ export function crearConsultas(db: SigatokaDB) {
         for (const e of evs) plantas += (await db.plantas.where('evaluacion_tabla_id').equals(e.id).toArray()).filter(vivo).length
         salida.push({
           recorrido,
-          operador: await nombreUsuario(recorrido.usuario_id),
-          sincronizado: recorrido.estado === 'cerrado' && (await sinNadaPendiente(recorrido)),
+          operador: await operadorDe(recorrido.usuario_id),
+          sincronizado: recorrido.estado === 'cerrado' && !pendientes.has(recorrido.id),
           tablas: evs.length,
           plantas,
         })
@@ -119,7 +110,7 @@ export function crearConsultas(db: SigatokaDB) {
       return {
         recorrido,
         operador: await nombreUsuario(recorrido.usuario_id),
-        sincronizado: recorrido.estado === 'cerrado' && (await sinNadaPendiente(recorrido)),
+        sincronizado: recorrido.estado === 'cerrado' && !(await recorridosConAlgoPendiente(db)).has(recorrido.id),
         evaluaciones,
       }
     },
