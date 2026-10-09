@@ -216,6 +216,8 @@ Trabajas un hito a la vez. Un supervisor (Claude, en otra conversación con el r
 ### Reglas
 
 - No empieces un hito sin sus instrucciones (`docs/hitos/HITO-N.md`).
+- **Fusión a `main`.** Mientras no haya productores usando la app, cada hito se fusiona a `main` en cuanto `typecheck`, `lint`, `test`, `e2e` y `build` pasen; no esperes la aprobación del supervisor ni las pruebas en celulares. El responsable prueba siempre en https://salvadorsiga.vercel.app. Si la revisión del supervisor pide correcciones, se hacen después en `main` o en una rama corta que también se fusiona.
+- Antes del piloto con productores (hito 8) se separa `main` (lo que usan los productores) de una rama de pruebas con su propia URL.
 - No hagas trabajo de hitos futuros.
 - Si algo del hito choca con este documento, detente y repórtalo en lugar de elegir por tu cuenta.
 - Cambios al modelo de datos fuera de lo indicado: proponlos en el reporte, no los apliques.
