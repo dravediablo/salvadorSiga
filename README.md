@@ -39,3 +39,13 @@ Antes de reportar un hito deben pasar `typecheck`, `lint`, `test`, `build` y, de
 ## Despliegue
 
 Vercel sirve `dist/` y reescribe todas las rutas a `index.html` (ver `vercel.json`). Producción sale de `main`; cada rama genera una vista previa.
+
+## Base de datos (hito 3)
+
+Postgres con Supabase local (requiere Docker y la CLI de Supabase). Los puertos son 563xx para no chocar con otros proyectos.
+
+- `supabase start` levanta el servidor local; `npm run db:reset` aplica las migraciones de `supabase/migrations/` desde cero.
+- `npm run db:test` corre las pruebas pgTAP de `supabase/tests/`; `npm run db:lint`, el análisis de las funciones.
+- `npm run db:tipos` regenera `src/datos/supabase/tipos.gen.ts`; `tipos.check.ts` verifica en `npm run typecheck` que el dominio y las filas coinciden.
+- Los clientes solo leen (RLS); escriben únicamente con la función `aplicar_cambios`.
+
