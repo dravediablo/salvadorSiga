@@ -42,6 +42,17 @@ export async function solicitarPersistencia(instalada: boolean): Promise<Registr
   return registro
 }
 
+let pedidaEnEstaSesion = false
+
+/** Primera captura: pide almacenamiento persistente si aún no se concedió (una vez por sesión de la app). */
+export async function asegurarPersistencia(instalada: boolean): Promise<void> {
+  const ultimo = leerRegistros().at(-1)
+  if (ultimo && (ultimo.resultado === 'concedida' || ultimo.resultado === 'ya_concedida')) return
+  if (pedidaEnEstaSesion) return
+  pedidaEnEstaSesion = true
+  await solicitarPersistencia(instalada)
+}
+
 export async function estaPersistente(): Promise<boolean | null> {
   try {
     return navigator.storage?.persisted ? await navigator.storage.persisted() : null
