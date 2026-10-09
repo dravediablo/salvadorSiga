@@ -81,6 +81,7 @@ App web progresiva (PWA) para monitorear Sigatoka negra (*Pseudocercospora fijie
 - **App:** Vite, React y TypeScript en modo estricto. Para la PWA, `vite-plugin-pwa` (Workbox).
 - **Almacenamiento local:** Dexie sobre IndexedDB.
 - **Servidor:** Supabase (Postgres, inicio de sesión, reglas de acceso por fila o RLS, funciones del servidor) a partir del hito 3.
+- **Funciones del servidor (Supabase Edge Functions, `supabase/functions/`):** son el único lugar donde se usa la llave `service_role`, que vive en los secretos del proyecto y nunca en el repositorio ni en el cliente.
 - **Alojamiento:** Vercel.
 - **Pruebas:** Vitest.
 - Usa las versiones estables actuales. Toda dependencia nueva se justifica en el reporte del hito.
@@ -214,7 +215,7 @@ Trabajas un hito a la vez. Un supervisor (Claude, en otra conversación con el r
 2. Almacenamiento local (Dexie, repositorios y cola de pendientes), importación de KMZ e interfaz de captura portada del prototipo, solo local.
 3. Esquema de Postgres en Supabase con reglas de acceso por rancho y pruebas de esas reglas.
 4. Sincronización: cola de pendientes, envío, descarga y conflictos.
-5. Inicio de sesión con código de 6 dígitos por correo, creación de rancho e invitación de operadores.
+5. Cuentas reales: propietarios con correo y contraseña (alta con código), operadores con código de rancho, usuario y PIN (función del servidor con bloqueo por intentos), gestión de operadores, migración de datos locales y paso a producción.
 6. Tablero, aplicaciones y exportación portados del prototipo.
 7. Clima diario automático (Open-Meteo) desde el servidor.
 8. Preparación del piloto: aviso de privacidad, registro de errores, respaldos, guía de una página y pruebas en dispositivos reales.
