@@ -42,8 +42,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precarga todo el cascarón, incluidas las fuentes, para abrir sin conexión.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2,webmanifest}'],
+        // Precarga todo el cascarón para abrir sin conexión. Fuentes: solo woff2 (todo navegador
+        // con service worker lo soporta) y solo el subconjunto latino, en pesos 400 y 700.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,webmanifest}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         // Sin skipWaiting/clientsClaim automáticos: la actualización la decide el usuario.

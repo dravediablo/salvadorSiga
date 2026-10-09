@@ -1,4 +1,4 @@
-// Genera src/datos/__fixtures__/sintetico.kmz: un KMZ inventado de 3 polígonos para las pruebas.
+// Genera src/datos/__fixtures__/sintetico.kmz: un KMZ inventado de 5 polígonos (3 tablas y 2 franjas "buffer") para las pruebas.
 // No contiene datos reales de ningún productor. Uso: node scripts/generar-kmz-sintetico.mjs
 import { mkdirSync, writeFileSync } from 'node:fs'
 import JSZip from 'jszip'
@@ -7,7 +7,10 @@ import JSZip from 'jszip'
 const lotes = [
   ['Tabla 1. Sup. 6.8 ha.', -103.5, 18.5, 0.003, 0.0021],
   ['tabla 2. Sup. 5.1 ha.', -103.4965, 18.5, 0.0025, 0.0019],
+  ['Tabla 3. Sup. 4.2 ha.', -103.4935, 18.5, 0.0022, 0.0018],
+  // Franjas "buffer": el productor pidió omitirlas; se escriben con distintas mayúsculas a propósito.
   ['Tabla 2A Buffer 0.30', -103.4965, 18.4975, 0.0008, 0.0035],
+  ['Tabla 3 BUFFER 0.20', -103.4935, 18.4975, 0.0006, 0.0030],
 ]
 
 const anillo = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y - h], [x, y - h], [x, y]].map(([a, b]) => `${a},${b},0`).join(' ')
