@@ -285,6 +285,14 @@ typecheck: ok/falla · lint: ok/falla · test: <n> en verde (TZ probadas: …) �
 ```
 ````
 
+## Riesgos aceptados del piloto
+
+Decididos con el responsable; se revisan en el hito 8.
+
+- **Bloqueo de un operador por terceros.** Quien conozca el código del rancho y el usuario (alias) de un operador puede bloquearlo con 10 PIN incorrectos: no puede entrar, pero lo deja sin trabajar hasta que el propietario le dé un PIN nuevo.
+- **Revocación de sesión.** Revocar una sesión surte efecto cuando vence el token de acceso (≈1 h); aun así, RLS corta el acceso a los datos de inmediato.
+- **Pérdida de la PIMIENTA.** Si se pierde (el secreto con el que se derivan las contraseñas de los operadores), todos los operadores necesitan un PIN nuevo.
+
 ## Instrucciones del supervisor
 
 Cuando un mensaje del supervisor pida actualizar `CLAUDE.md` o crear un archivo de `docs/hitos/`, hazlo tú con el contenido indicado y commitéalo. El responsable no copia archivos a mano.

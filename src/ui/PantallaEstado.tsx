@@ -5,6 +5,7 @@ import { estaPersistente, leerRegistros, solicitarPersistencia, type RegistroPer
 import { CuentaSesion } from './CuentaSesion'
 import { PanelInstalacion } from './PanelInstalacion'
 import { Rechazos } from './Rechazos'
+import { SubirDatosLocales } from './SubirDatosLocales'
 
 const TEXTO_RESULTADO: Record<RegistroPersistencia['resultado'], string> = {
   concedida: 'Concedida',
@@ -24,7 +25,7 @@ function Fila({ etiqueta, valor, bien }: { etiqueta: string; valor: string; bien
 }
 
 /** Instalación, conexión y almacenamiento del dispositivo (lo que era la pantalla de inicio del hito 1). */
-export function PantallaEstado() {
+export function PantallaEstado({ ranchoId }: { ranchoId?: string } = {}) {
   const enLinea = useConexion()
   const { modo, instalada, instalar } = useInstalacion()
   const [persistente, setPersistente] = useState<boolean | null>(null)
@@ -52,6 +53,7 @@ export function PantallaEstado() {
     <div>
       <h1>Estado de la app</h1>
       <Rechazos />
+      {ranchoId && <SubirDatosLocales ranchoId={ranchoId} enEstado />}
       <PanelInstalacion modo={modo} onInstalar={() => void instalar()} />
       <section className="seccion" aria-labelledby="estado">
         <h2 id="estado">Este dispositivo</h2>

@@ -20,7 +20,7 @@ function mensaje(e: unknown): string {
   if (e instanceof TypeError) return SIN_CONEXION // fetch sin red
   const texto = e instanceof Error ? e.message : String(e)
   if (MENSAJES[texto]) return MENSAJES[texto]
-  if (/password should be at least/i.test(texto)) return 'La contraseña debe tener al menos 6 caracteres.'
+  if (/password should be at least|password is too short/i.test(texto)) return 'La contraseña debe tener al menos 8 caracteres.'
   if (/valid email|invalid format|email address .* is invalid/i.test(texto)) return 'Escribe un correo válido.'
   if (/failed to fetch|network/i.test(texto)) return SIN_CONEXION
   return texto

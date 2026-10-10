@@ -125,11 +125,53 @@ test('crear cuenta de propietario con un código de alta y crear su rancho', asy
   await page.getByRole('button', { name: 'Crear cuenta' }).click()
   await page.getByLabel('Tu nombre').fill('Dueña E2E')
   await page.getByLabel('Correo').fill(`e2e-${Date.now()}@correo.test`)
-  await page.getByLabel('Contraseña (mínimo 6 caracteres)').fill('contrasena-larga')
+  await page.getByLabel('Contraseña (mínimo 8 caracteres)').fill('contrasena-larga')
   await page.getByLabel('Código de alta').fill(codigo)
   await page.getByRole('button', { name: 'Crear cuenta' }).click()
   await page.getByLabel('Nombre del rancho').fill('Rancho E2E')
   await page.getByRole('button', { name: 'Crear mi rancho' }).click()
   await expect(page.getByRole('heading', { name: 'Recorridos' })).toBeVisible({ timeout: 30_000 })
   expect(sql(`select usado_por is not null from public.codigo_alta where codigo = '${codigo}'`)).toBe('t')
+})
+
+test('"Ahora no" oculta el aviso de campo, pero "Subir los datos de antes de las cuentas" sigue en Estado y sube las tablas', async ({ page }) => {
+  const codigo = `MIG${Math.random().toString(36).slice(2, 7).toUpperCase()}`
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
+  // Datos de la etapa sin servidor: la base local "sigatoka" (la que usa la app mientras no hay sesión) con una tabla.
+  await page.evaluate(async (c) => {
+    const abrir = indexedDB.open('sigatoka')
+    const db = await new Promise<IDBDatabase>((ok, mal) => {
+      abrir.onsuccess = () => ok(abrir.result)
+      abrir.onerror = () => mal(abrir.error)
+    })
+    const t = '2026-10-01T12:00:00.000Z'
+    await new Promise<void>((ok, mal) => {
+      const tx = db.transaction('tablas', 'readwrite')
+      tx.objectStore('tablas').put({
+        id: crypto.randomUUID(), rancho_id: 'rancho-antiguo', codigo: c, nombre: `Tabla ${c}`, superficie_ha: 3.5, variedad: 'Gran Enano', geometria: null, activa: true, origen: 'manual',
+        created_at: t, updated_at: t, server_updated_at: null, eliminado: false,
+      })
+      tx.oncomplete = () => ok()
+      tx.onerror = () => mal(tx.error)
+    })
+    db.close()
+  }, codigo)
+
+  await page.getByRole('tab', { name: 'Soy propietario' }).click()
+  await page.getByLabel('Correo').fill('admin@prueba.test')
+  await page.getByLabel('Contraseña').fill('prueba123')
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Recorridos' })).toBeVisible({ timeout: 30_000 })
+
+  // El aviso aparece en campo; "Ahora no" lo oculta…
+  await expect(page.getByRole('heading', { name: 'Subir los datos de antes de las cuentas' })).toBeVisible()
+  await page.getByRole('button', { name: 'Ahora no' }).click()
+  await expect(page.getByRole('heading', { name: 'Subir los datos de antes de las cuentas' })).toHaveCount(0)
+  // …pero sigue disponible en Estado.
+  await page.getByRole('button', { name: 'Estado' }).click()
+  await expect(page.getByRole('heading', { name: 'Subir los datos de antes de las cuentas' })).toBeVisible()
+  await page.getByRole('button', { name: 'Subir a mi rancho' }).click()
+  await expect.poll(() => sql(`select count(*) from public.tabla where codigo = '${codigo}' and rancho_id = 'd1000000-0000-4000-8000-000000000001'`), { timeout: 30_000 }).toBe('1')
+  await expect(page.getByRole('heading', { name: 'Tus datos ya están en tu rancho' })).toBeVisible({ timeout: 30_000 })
 })
