@@ -13,7 +13,7 @@ create extension if not exists pgtap with schema extensions;
 
 -- La base de desarrollo trae datos de supabase/seed.sql: las pruebas parten de cero (el rollback final los devuelve).
 truncate table public.clima_diario, public.planta_marcada, public.aplicacion, public.hoja, public.planta, public.evaluacion_tabla,
-  public.recorrido, public."tabla", public.membresia, public.usuario, public.rancho;
+  public.recorrido, public."tabla", public.membresia, public.cuenta_operador, public.codigo_alta, public.usuario, public.rancho;
 delete from auth.users;
 
 create schema tap_h;
@@ -69,10 +69,8 @@ insert into auth.users (id, instance_id, aud, role, email)
 select tap_h.id(n), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', n || '@prueba.test'
 from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
 
--- "solo" tiene cuenta pero ningún rancho; todos los demás tienen perfil.
-insert into public.usuario (id, created_at, updated_at, nombre, email)
-select tap_h.id(n), now(), now(), n, n || '@prueba.test'
-from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
+-- "solo" tiene cuenta pero ningún rancho. El perfil lo crea el trigger de auth.users; aquí se le pone nombre.
+update public.usuario set nombre = split_part(email, '@', 1) where id in (select id from tap_h.ids);
 
 insert into public.rancho (id, created_at, updated_at, nombre) values
   (tap_h.id('rancho_a'), now(), now(), 'Rancho A'),
@@ -290,6 +288,10 @@ select is(tap_h.sqlstate_de(format('insert into public.%I default values', t)), 
 select is(tap_h.sqlstate_de(format('update public.%I set eliminado = true', t)), '42501', 'c. operador no puede UPDATE directo en ' || t) from unnest(tap_h.tablas()) as t;
 select is(tap_h.sqlstate_de(format('delete from public.%I', t)), '42501', 'c. operador no puede DELETE directo en ' || t) from unnest(tap_h.tablas()) as t;
 
+select is(tap_h.sqlstate_de(format('%s public.%I %s', o.sentencia, o.tabla, o.resto)), '42501', 'c. no puede ' || o.sentencia || ' directo en ' || o.tabla)
+from (values ('insert into', 'cuenta_operador', 'default values'), ('update', 'cuenta_operador', 'set alias = $$x$$'), ('delete from', 'cuenta_operador', ''),
+             ('insert into', 'codigo_alta', 'default values'), ('update', 'codigo_alta', 'set usado_por = null'), ('delete from', 'codigo_alta', '')) as o (sentencia, tabla, resto);
+
 -- Insertarse una membresía en B (con datos completos, no solo default values).
 reset role;
 select tap_h.como('op1');
@@ -344,13 +346,14 @@ select is(
 select is(
   (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relrowsecurity),
-  11::bigint, 'l. y son las 11 tablas del modelo');
+  13::bigint, 'l. y son las 13 tablas (11 del modelo, codigo_alta y cuenta_operador)');
 select is(
   (select count(*) from pg_policies where schemaname = 'public' and cmd <> 'SELECT'),
   0::bigint, 'l. ninguna política permite INSERT, UPDATE, DELETE ni ALL');
 select is(
   (select count(*) from pg_policies where schemaname = 'public' and cmd = 'SELECT'),
-  11::bigint, 'l. hay exactamente una política de lectura por tabla');
+  12::bigint, 'l. hay una política de lectura por tabla, salvo codigo_alta (sin ninguna: nadie la lee)');
+select is((select count(*) from pg_policies where schemaname = 'public' and tablename = 'codigo_alta'), 0::bigint, 'l. codigo_alta no tiene ninguna política');
 select is(
   (select count(*) from information_schema.role_table_grants
     where table_schema = 'public' and grantee in ('anon', 'authenticated') and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')),
@@ -369,7 +372,7 @@ select is(
     where n.nspname = 'public'
       and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')   -- las de extensiones no cuentan
       and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-  array['aplicar_cambios', 'comparte_rancho_con', 'crear_rancho', 'es_miembro', 'rol_en'],
+  array['aplicar_cambios', 'comparte_rancho_con', 'crear_rancho', 'es_miembro', 'mi_estado', 'rol_en'],
   'n. la lista EXACTA de funciones de public que authenticated puede ejecutar');
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -385,7 +388,7 @@ select is(
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosecdef and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')),
-  5::bigint, 'n. las 5 funciones SECURITY DEFINER de public son exactamente las esperadas');
+  8::bigint, 'n. las 8 funciones SECURITY DEFINER de public son exactamente las esperadas (6 de la app y 2 solo para service_role)');
 -- Una función nueva que alguien olvide conceder queda cerrada (por eso este assert hace fallar la prueba si se le concede por descuido).
 create function public.funcion_olvidada() returns integer language sql as 'select 1';
 select ok(not has_function_privilege('authenticated', 'public.funcion_olvidada()', 'EXECUTE'), 'n. una función nueva no es ejecutable por authenticated');

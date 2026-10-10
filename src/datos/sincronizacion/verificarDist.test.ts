@@ -19,6 +19,11 @@ function verificar(archivos: Record<string, string>) {
   return spawnSync('node', ['scripts/verificar-dist.mjs', dir], { encoding: 'utf8' })
 }
 
+function jwt(carga: object): string {
+  const parte = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
+  return `${parte({ alg: 'HS256', typ: 'JWT' })}.${parte(carga)}.${'x'.repeat(30)}`
+}
+
 describe('verificar-dist', () => {
   it('una compilación limpia pasa', () => {
     const r = verificar({ 'index.html': '<html></html>', 'assets/index.js': 'console.log("Solo en este dispositivo")' })
@@ -26,13 +31,20 @@ describe('verificar-dist', () => {
   })
 
   it.each([
+    ['la URL de un proyecto de Supabase', 'u="https://abcdefgh.supabase.co"'],
+    ['una llave pública nueva (sb_publishable_…)', `k="${['sb_publishable', 'x'.repeat(30)].join('_')}"`],
+    ['un JWT con rol anon', `k="${jwt({ role: 'anon', iss: 'supabase' })}"`],
+  ])('ACEPTA %s: en producción sí van', (_nombre, contenido) => {
+    expect(verificar({ 'assets/index.js': contenido }).status).toBe(0)
+  })
+
+  it.each([
     ['el texto del acceso de desarrollo', 'x("Acceso de desarrollo (temporal)")'],
     ['el botón del acceso de desarrollo', 'x("Iniciar sesión de desarrollo")'],
     // Se arman al vuelo para que el repositorio no contenga nada con forma de llave real.
-    ['una llave pública nueva', `k="${['sb_publishable', 'x'.repeat(30)].join('_')}"`],
-    ['una llave secreta nueva', `k="${['sb_secret', 'x'.repeat(30)].join('_')}"`],
-    ['un JWT', 'k="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24ifQ.CRXP1A7WOeoJeXxjNni43kdQ"'],
-    ['la URL de un proyecto', 'u="https://abcdefgh.supabase.co"'],
+    ['una llave secreta (sb_secret_…)', `k="${['sb_secret', 'x'.repeat(30)].join('_')}"`],
+    ['un JWT con rol service_role', `k="${jwt({ role: 'service_role', iss: 'supabase' })}"`],
+    ['la PIMIENTA', 'const p = process.env.PIMIENTA'],
     ['la URL local', 'u="http://127.0.0.1:56321"'],
   ])('falla si aparece %s', (_nombre, contenido) => {
     const r = verificar({ 'assets/index.js': contenido })

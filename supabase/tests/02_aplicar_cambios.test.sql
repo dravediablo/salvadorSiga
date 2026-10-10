@@ -13,7 +13,7 @@ create extension if not exists pgtap with schema extensions;
 
 -- La base de desarrollo trae datos de supabase/seed.sql: las pruebas parten de cero (el rollback final los devuelve).
 truncate table public.clima_diario, public.planta_marcada, public.aplicacion, public.hoja, public.planta, public.evaluacion_tabla,
-  public.recorrido, public."tabla", public.membresia, public.usuario, public.rancho;
+  public.recorrido, public."tabla", public.membresia, public.cuenta_operador, public.codigo_alta, public.usuario, public.rancho;
 delete from auth.users;
 
 create schema tap_h;
@@ -69,10 +69,8 @@ insert into auth.users (id, instance_id, aud, role, email)
 select tap_h.id(n), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', n || '@prueba.test'
 from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
 
--- "solo" tiene cuenta pero ningún rancho; todos los demás tienen perfil.
-insert into public.usuario (id, created_at, updated_at, nombre, email)
-select tap_h.id(n), now(), now(), n, n || '@prueba.test'
-from unnest(array['admin_a', 'op1', 'op2', 'inactivo', 'admin_b', 'solo']) as n;
+-- "solo" tiene cuenta pero ningún rancho. El perfil lo crea el trigger de auth.users; aquí se le pone nombre.
+update public.usuario set nombre = split_part(email, '@', 1) where id in (select id from tap_h.ids);
 
 insert into public.rancho (id, created_at, updated_at, nombre) values
   (tap_h.id('rancho_a'), now(), now(), 'Rancho A'),
@@ -238,7 +236,7 @@ $$;
 -- ===========================================================================
 select tap_h.como_anon();
 select is(tap_h.sqlstate_de($$select public.aplicar_cambios('[]'::jsonb)$$), '42501', 'anon no puede ejecutar aplicar_cambios');
-select is(tap_h.sqlstate_de($$select public.crear_rancho('X')$$), '42501', 'anon no puede ejecutar crear_rancho');
+select is(tap_h.sqlstate_de($$select public.crear_rancho('X', null, null, 'ABCD2345')$$), '42501', 'anon no puede ejecutar crear_rancho');
 reset role;
 
 -- ===========================================================================

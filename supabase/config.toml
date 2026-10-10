@@ -204,7 +204,8 @@ anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-sign_in_sign_ups = 30
+# Local: alto para que las pruebas no choquen con el límite. El proyecto real usa el suyo (por defecto 30 cada 5 min por IP).
+sign_in_sign_ups = 1000
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
 token_verifications = 30
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
@@ -372,7 +373,7 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
-enabled = false
+enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
@@ -382,8 +383,17 @@ inspector_port = 8183
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# La pimienta de los PIN de los operadores. En local sale de supabase/.env (sin versionar; lo crea
+# `npm run preparar-local`); en el proyecto real se define con `supabase secrets set`.
+[edge_runtime.secrets]
+PIMIENTA = "env(PIMIENTA)"
+
+# Pública: es la que inicia sesión de un operador con su código, usuario y PIN (la función aplica el bloqueo por intentos).
+[functions.entrar_operador]
+verify_jwt = false
+
+[functions.operadores]
+verify_jwt = true
 
 [analytics]
 enabled = false

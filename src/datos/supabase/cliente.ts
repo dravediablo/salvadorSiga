@@ -9,6 +9,10 @@ import type { Database } from './tipos.gen'
 const URL_SUPABASE: string | undefined = import.meta.env.VITE_SUPABASE_URL
 const LLAVE_PUBLICA: string | undefined = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+/** Dirección y llave pública (anon) del proyecto; solo para las llamadas directas a las funciones del servidor. */
+export const urlSupabase = (): string => URL_SUPABASE ?? ''
+export const llavePublica = (): string => LLAVE_PUBLICA ?? ''
+
 export const supabaseConfigurado: boolean = !!URL_SUPABASE && !!LLAVE_PUBLICA
 
 /** Dónde guarda la sesión supabase-js; se lee también de forma síncrona para elegir la base local. */

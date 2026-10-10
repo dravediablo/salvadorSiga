@@ -41,10 +41,11 @@ where u.email in ('admin@prueba.test', 'op1@prueba.test', 'op2@prueba.test');
 insert into public.usuario (id, created_at, updated_at, nombre, email) values
   ('d0000000-0000-4000-8000-000000000001', now(), now(), 'Propietario de prueba', 'admin@prueba.test'),
   ('d0000000-0000-4000-8000-000000000002', now(), now(), 'Operador 1', 'op1@prueba.test'),
-  ('d0000000-0000-4000-8000-000000000003', now(), now(), 'Operador 2', 'op2@prueba.test');
+  ('d0000000-0000-4000-8000-000000000003', now(), now(), 'Operador 2', 'op2@prueba.test')
+on conflict (id) do update set nombre = excluded.nombre; -- el perfil ya lo creó el trigger de auth.users
 
-insert into public.rancho (id, created_at, updated_at, nombre, lat, lon) values
-  ('d1000000-0000-4000-8000-000000000001', now(), now(), 'Rancho de prueba', 18.9, -103.9);
+insert into public.rancho (id, created_at, updated_at, nombre, lat, lon, codigo) values
+  ('d1000000-0000-4000-8000-000000000001', now(), now(), 'Rancho de prueba', 18.9, -103.9, 'PRUEBA');
 
 insert into public.membresia (id, created_at, updated_at, rancho_id, usuario_id, rol, activo) values
   ('d2000000-0000-4000-8000-000000000001', now(), now(), 'd1000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'administrador', true),

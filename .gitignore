@@ -11,3 +11,5 @@ test-results
 playwright-report
 # handoffs para el supervisor (CLAUDE.md): se generan por hito
 docs/handoff/
+# pimienta local de las funciones (supabase/.env); la real vive en `supabase secrets`
+supabase/.env

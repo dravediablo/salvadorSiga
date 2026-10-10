@@ -12,6 +12,13 @@ export const IconoTablas = () => (
     <path d="M3 5h18v14H3zM3 12h18M9 5v14M15 5v14" />
   </svg>
 )
+export const IconoOperadores = () => (
+  <svg {...base} aria-hidden="true">
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+    <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2.3.7 3.5 2.6 3.5 5.6" />
+  </svg>
+)
 export const IconoEstado = () => (
   <svg {...base} aria-hidden="true">
     <circle cx="12" cy="12" r="9" />

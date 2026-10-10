@@ -11,7 +11,7 @@ export interface Nav {
   hojas?: boolean
 }
 
-export type Pestana = 'campo' | 'tablas' | 'estado'
+export type Pestana = 'campo' | 'tablas' | 'operadores' | 'estado'
 
 const CLAVE_NAV = 'nav'
 const CLAVE_PESTANA = 'pestana'

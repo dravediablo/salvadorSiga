@@ -1,13 +1,31 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ItemLote, ResultadoItem, Servidor } from '../sincronizacion/servidor'
+import { SesionVencida, type ItemLote, type MembresiaEstado, type ResultadoItem, type Servidor } from '../sincronizacion/servidor'
 import type { Database } from './tipos.gen'
 
 /** Implementación de `Servidor` sobre un cliente de Supabase con sesión. */
 export function servidorSupabase(cliente: SupabaseClient<Database>): Servidor {
+  /** Antes de cada llamada: si no hay sesión (la renovación falló), se pide volver a entrar. */
+  const conSesion = async (): Promise<void> => {
+    const { data } = await cliente.auth.getSession()
+    if (!data.session) throw new SesionVencida()
+  }
+  /** Un 401 del servidor (JWT vencido o revocado) también es sesión vencida; lo demás es un error normal. */
+  const fallo = (error: { message: string }, status: number): never => {
+    if (status === 401 || /JWT/i.test(error.message)) throw new SesionVencida()
+    throw new Error(error.message)
+  }
   return {
+    async miEstado(): Promise<MembresiaEstado[]> {
+      await conSesion()
+      const { data, error, status } = await cliente.rpc('mi_estado')
+      if (error) return fallo(error, status)
+      return (data ?? []) as MembresiaEstado[]
+    },
+
     async aplicarCambios(lote: ItemLote[]): Promise<ResultadoItem[]> {
-      const { data, error } = await cliente.rpc('aplicar_cambios', { lote: lote as unknown as never })
-      if (error) throw new Error(error.message)
+      await conSesion()
+      const { data, error, status } = await cliente.rpc('aplicar_cambios', { lote: lote as unknown as never })
+      if (error) return fallo(error, status)
       return data as unknown as ResultadoItem[]
     },
 
@@ -21,17 +39,19 @@ export function servidorSupabase(cliente: SupabaseClient<Database>): Servidor {
       } else if (desde) {
         consulta = consulta.gt('server_updated_at', desde)
       }
-      const { data, error } = await consulta
+      await conSesion()
+      const { data, error, status } = await consulta
         .order('server_updated_at', { ascending: true })
         .order('id', { ascending: true })
         .limit(limite)
-      if (error) throw new Error(error.message)
+      if (error) return fallo(error, status)
       return data as unknown as Array<Record<string, unknown>>
     },
 
     async traerRegistro(entidad, id) {
-      const { data, error } = await cliente.from(entidad as 'hoja').select('*').eq('id', id).maybeSingle()
-      if (error) throw new Error(error.message)
+      await conSesion()
+      const { data, error, status } = await cliente.from(entidad as 'hoja').select('*').eq('id', id).maybeSingle()
+      if (error) return fallo(error, status)
       return (data as unknown as Record<string, unknown> | null) ?? null
     },
   }

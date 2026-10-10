@@ -130,6 +130,13 @@ export function crearConsultas(db: SigatokaDB) {
       return { ...base, planta: actual.planta, hojas: actual.hojas }
     },
 
+    /** Operadores del rancho según lo descargado: su membresía (activa o no) y el nombre de su perfil. */
+    async operadores(): Promise<Array<{ usuarioId: string; nombre: string; activo: boolean }>> {
+      const membresias = (await db.membresias.toArray()).filter((m) => !m.eliminado && m.rol === 'operador')
+      const salida = await Promise.all(membresias.map(async (m) => ({ usuarioId: m.usuario_id, nombre: (await db.usuarios.get(m.usuario_id))?.nombre || 'Operador', activo: m.activo })))
+      return salida.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    },
+
     /** Rechazos del servidor pendientes de revisar, con una descripción legible, del más reciente al más antiguo. */
     async rechazos(): Promise<Array<{ rechazo: Rechazo; descripcion: string }>> {
       const lista = (await db.rechazos.toArray()).sort((a, b) => b.fecha.localeCompare(a.fecha))
