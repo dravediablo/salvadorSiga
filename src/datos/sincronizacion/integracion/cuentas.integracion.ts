@@ -369,6 +369,15 @@ describe('cuentas reales contra Supabase local', () => {
     }
   })
 
+  it('la contraseña de propietario exige 8 caracteres como mínimo', async () => {
+    const corto = await clienteNuevo().auth.signUp({ email: `${azar(8)}@correo.test`, password: '1234567' })
+    expect(corto.error?.message).toMatch(/at least 8|too short/i)
+    expect(corto.data.session).toBeNull()
+    const ok = await clienteNuevo().auth.signUp({ email: `${azar(8)}@correo.test`, password: '12345678' })
+    expect(ok.error).toBeNull()
+    expect(ok.data.session).not.toBeNull()
+  })
+
   it('el seed: el rancho de prueba tiene el código PRUEBA y las cuentas de contraseña siguen sirviendo para las pruebas', async () => {
     expect(sql(`select codigo from public.rancho where id = '${RANCHO}'`)).toBe('PRUEBA')
     expect(await clienteDe('admin')).toBeDefined()

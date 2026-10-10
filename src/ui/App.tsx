@@ -89,7 +89,7 @@ export function App() {
         {activa === 'campo' && <Campo actual={actual} irAInstalar={() => elegir('estado')} />}
         {activa === 'tablas' && esAdmin && <AdminTablas ranchoId={rancho.id} />}
         {activa === 'operadores' && esAdmin && modoServidor && <Operadores ranchoId={rancho.id} />}
-        {activa === 'estado' && <PantallaEstado />}
+        {activa === 'estado' && <PantallaEstado ranchoId={esAdmin && modoServidor ? rancho.id : undefined} />}
       </main>
       <nav className="nav" aria-label="Secciones">
         {pestanas.map(([clave, nombre, icono]) => (

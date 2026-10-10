@@ -9,7 +9,7 @@ const CLAVE_AHORA_NO = 'sigatoka.migracion.ahora_no'
  * Migración de la etapa sin servidor: el propietario sube las tablas (y, si quiere, los recorridos) capturados en este
  * celular antes de que hubiera cuentas. La base local antigua no se borra hasta que la subida se confirme sincronizada.
  */
-export function SubirDatosLocales({ ranchoId }: { ranchoId: string }) {
+export function SubirDatosLocales({ ranchoId, enEstado = false }: { ranchoId: string; enEstado?: boolean }) {
   // Se vuelve a leer cuando cambian los datos de la cuenta (la cola y los ajustes) y después de cada acción.
   const [version, setVersion] = useState(0)
   const datos = useLiveQuery(
@@ -68,10 +68,11 @@ export function SubirDatosLocales({ ranchoId }: { ranchoId: string }) {
       </section>
     )
   }
-  if (!resumen || ahoraNo) return null
+  // "Ahora no" solo oculta el aviso de la pantalla de campo; en la pestaña Estado sigue disponible mientras la base antigua tenga datos.
+  if (!resumen || (ahoraNo && !enEstado)) return null
   return (
     <section className="seccion caja" aria-labelledby="migracion">
-      <h2 id="migracion">Subir los datos de este celular a tu rancho</h2>
+      <h2 id="migracion">Subir los datos de antes de las cuentas</h2>
       <p className="peq">
         Este celular tiene datos de antes de las cuentas: {resumen.tablas} tabla(s) y {resumen.recorridos} recorrido(s). Las tablas se copian a tu rancho con su polígono, superficie y variedad.
       </p>

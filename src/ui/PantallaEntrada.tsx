@@ -162,7 +162,7 @@ function FormularioPropietario() {
           <input className="inp" type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} autoComplete="username" autoCapitalize="none" />
         </label>
         <label className="campo">
-          <span>Contraseña (mínimo 6 caracteres)</span>
+          <span>Contraseña (mínimo 8 caracteres)</span>
           <input className="inp" type="password" value={contrasena} onChange={(e) => setContrasena(e.target.value)} autoComplete="new-password" />
         </label>
         <label className="campo">
@@ -170,7 +170,7 @@ function FormularioPropietario() {
           <input className="inp" value={codigoAlta} onChange={(e) => setCodigoAlta(e.target.value.toUpperCase())} autoCapitalize="characters" autoComplete="off" />
         </label>
         <Error_ texto={error} />
-        <button className="btn btn-p btn-b" type="submit" disabled={ocupado || !nombre.trim() || !correo.trim() || contrasena.length < 6 || !codigoAlta.trim()}>
+        <button className="btn btn-p btn-b" type="submit" disabled={ocupado || !nombre.trim() || !correo.trim() || contrasena.length < 8 || !codigoAlta.trim()}>
           {ocupado ? 'Creando…' : 'Crear cuenta'}
         </button>
         <button className="enlace" type="button" onClick={() => { setModo('entrar'); setError(null) }}>
