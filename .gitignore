@@ -4,6 +4,7 @@ coverage
 .vercel
 .DS_Store
 .env*.local
+.env
 *.tsbuildinfo
 # datos reales de productores (CLAUDE.md): nunca al repositorio
 datos-locales/
