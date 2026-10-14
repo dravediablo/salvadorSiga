@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env*)",
+      "Edit(./.env*)",
+      "Edit(./supabase/migrations/**)",
+      "Bash(git push origin main:*)",
+      "Bash(git checkout main:*)",
+      "Bash(git merge:*)",
+      "Bash(supabase:*)",
+      "Bash(vercel:*)"
+    ]
+  }
+}
