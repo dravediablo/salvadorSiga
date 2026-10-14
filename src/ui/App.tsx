@@ -10,13 +10,14 @@ import { Bienvenida } from './Bienvenida'
 import { Campo } from './captura/Campo'
 import { Dialogo, Toast } from './dialogos'
 import { Encabezado } from './Encabezado'
-import { IconoCampo, IconoEstado, IconoOperadores, IconoTablas } from './iconos'
+import { IconoCampo, IconoEstado, IconoOperadores, IconoTablas, IconoTablero } from './iconos'
 import { usePestana, type Pestana } from './navegacion'
 import { Operadores } from './Operadores'
 import { PantallaEntrada } from './PantallaEntrada'
 import { AccesoDesactivado, CrearRanchoPantalla, VuelveAEntrar } from './PantallasDeSesion'
 import { PantallaEstado } from './PantallaEstado'
 import { SubirDatosLocales } from './SubirDatosLocales'
+import { Tablero } from './tablero/Tablero'
 import { useSincronizacion } from './useSincronizacion'
 
 /** Primera sincronización de una persona en este dispositivo: todavía no hay rancho local que mostrar. */
@@ -69,6 +70,7 @@ export function App() {
   const esAdmin = puedeAdministrar({ usuario_id: actual.usuario.id, rol: actual.membresia.rol })
   const pestanas: Array<[Pestana, string, React.ReactNode]> = [
     ['campo', 'Campo', <IconoCampo key="c" />],
+    ...(esAdmin ? ([['tablero', 'Tablero', <IconoTablero key="b" />]] as Array<[Pestana, string, React.ReactNode]>) : []),
     ...(esAdmin ? ([['tablas', 'Tablas', <IconoTablas key="t" />]] as Array<[Pestana, string, React.ReactNode]>) : []),
     ...(esAdmin && modoServidor ? ([['operadores', 'Operadores', <IconoOperadores key="o" />]] as Array<[Pestana, string, React.ReactNode]>) : []),
     ['estado', 'Estado', <IconoEstado key="e" />],
@@ -84,9 +86,10 @@ export function App() {
           Instala la app antes de capturar: en iPhone, lo que captures en el navegador no aparece en la app instalada.
         </div>
       )}
-      <main className="contenido">
+      <main className={activa === 'tablero' ? 'contenido ancho' : 'contenido'}>
         {activa === 'campo' && esAdmin && modoServidor && <SubirDatosLocales ranchoId={rancho.id} />}
         {activa === 'campo' && <Campo actual={actual} irAInstalar={() => elegir('estado')} />}
+        {activa === 'tablero' && esAdmin && <Tablero rancho={rancho} />}
         {activa === 'tablas' && esAdmin && <AdminTablas ranchoId={rancho.id} />}
         {activa === 'operadores' && esAdmin && modoServidor && <Operadores ranchoId={rancho.id} />}
         {activa === 'estado' && <PantallaEstado ranchoId={esAdmin && modoServidor ? rancho.id : undefined} />}

@@ -7,6 +7,11 @@ export const IconoCampo = () => (
     <path d="M12 10c0-4 3-7 8-7 0 5-3 8-8 8" />
   </svg>
 )
+export const IconoTablero = () => (
+  <svg {...base} aria-hidden="true">
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </svg>
+)
 export const IconoTablas = () => (
   <svg {...base} aria-hidden="true">
     <path d="M3 5h18v14H3zM3 12h18M9 5v14M15 5v14" />

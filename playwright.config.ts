@@ -41,7 +41,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'captura', testMatch: 'captura.spec.ts', use: { baseURL: `http://localhost:${PUERTO}` } },
+    { name: 'captura', testMatch: ['captura.spec.ts', 'tablero.spec.ts'], use: { baseURL: `http://localhost:${PUERTO}` } },
     ...(supabase ? [{ name: 'sincronizacion', testMatch: 'sincronizacion.spec.ts', use: { baseURL: `http://localhost:${PUERTO_DESARROLLO}`, serviceWorkers: 'block' as const } }] : []),
   ],
   webServer: [

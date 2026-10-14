@@ -1,4 +1,4 @@
-import type { EvaluacionTabla, Hoja, Planta, PlantaConHojas, Rancho, Recorrido, Tabla, Usuario } from '@/dominio'
+import type { Aplicacion, ClimaDiario, EvaluacionConPlantas, EvaluacionTabla, Hoja, Planta, PlantaConHojas, Rancho, Recorrido, Tabla, Usuario } from '@/dominio'
 import { contarPendientes } from './cola'
 import type { Rechazo, SigatokaDB } from './db'
 import { recorridosConAlgoPendiente } from './sincronizacion/pendientesPorRecorrido'
@@ -40,6 +40,17 @@ export interface DetallePlanta extends DetalleTabla {
   hojas: Hoja[]
 }
 
+/** Todo lo que lee el tablero, ya sin registros eliminados. */
+export interface DatosTablero {
+  tablas: Tabla[]
+  usuarios: Usuario[]
+  recorridos: Recorrido[]
+  /** Evaluaciones Stover con sus plantas y hojas. */
+  evaluaciones: EvaluacionConPlantas[]
+  aplicaciones: Aplicacion[]
+  clima: ClimaDiario[]
+}
+
 /**
  * Lecturas para la interfaz. Son funciones sin efectos; la interfaz las envuelve
  * en `useLiveQuery` para que se vuelvan a ejecutar cuando cambian los datos.
@@ -72,6 +83,48 @@ export function crearConsultas(db: SigatokaDB) {
     },
 
     plantasConHojas,
+
+    /**
+     * Datos del tablero en una sola lectura (todas las evaluaciones, plantas y hojas vivas del rancho).
+     * Lee las tablas completas en vez de consultar planta por planta: con cientos de recorridos es mucho más rápido.
+     */
+    async datosTablero(): Promise<DatosTablero> {
+      const [tablas, usuarios, recorridos, evs, plantas, hojas, aplicaciones, clima] = await Promise.all([
+        db.tablas.toArray(),
+        db.usuarios.toArray(),
+        db.recorridos.toArray(),
+        db.evaluaciones.toArray(),
+        db.plantas.toArray(),
+        db.hojas.toArray(),
+        db.aplicaciones.toArray(),
+        db.clima.toArray(),
+      ])
+      const hojasDe = new Map<string, Hoja[]>()
+      for (const h of hojas) {
+        if (h.eliminado) continue
+        const l = hojasDe.get(h.planta_id)
+        if (l) l.push(h)
+        else hojasDe.set(h.planta_id, [h])
+      }
+      const plantasDe = new Map<string, PlantaConHojas[]>()
+      for (const planta of plantas) {
+        if (planta.eliminado) continue
+        const item = { planta, hojas: (hojasDe.get(planta.id) ?? []).sort((a, b) => a.numero_hoja - b.numero_hoja) }
+        const l = plantasDe.get(planta.evaluacion_tabla_id)
+        if (l) l.push(item)
+        else plantasDe.set(planta.evaluacion_tabla_id, [item])
+      }
+      return {
+        tablas: tablas.filter(vivo),
+        usuarios: usuarios.filter(vivo),
+        recorridos: recorridos.filter(vivo),
+        evaluaciones: evs
+          .filter(vivo)
+          .map((evaluacion) => ({ evaluacion, plantas: (plantasDe.get(evaluacion.id) ?? []).sort((a, b) => a.planta.numero_planta - b.planta.numero_planta) })),
+        aplicaciones: aplicaciones.filter(vivo),
+        clima: clima.filter(vivo),
+      }
+    },
 
     /** Todos los recorridos vivos con sus conteos, del más reciente al más antiguo. */
     async tarjetasRecorridos(): Promise<TarjetaRecorrido[]> {
