@@ -51,6 +51,12 @@ test('el tablero lo ve el administrador con el mapa y los datos; el operador no 
   await expect(mapa.getByText('33.3', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Estado por tabla' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Detalle por planta y hoja' })).toBeVisible()
+  // El rango de fechas se puede cambiar y "Volver a hoy" lo restablece (no se guarda entre sesiones).
+  await expect(page.getByRole('button', { name: 'Volver a hoy' })).toHaveCount(0)
+  await page.getByLabel('Desde').fill('2020-01-01')
+  await page.getByRole('button', { name: 'Volver a hoy' }).click()
+  await expect(page.getByRole('button', { name: 'Volver a hoy' })).toHaveCount(0)
+  await expect(mapa.getByText('33.3', { exact: true })).toBeVisible()
   // En 390 px la página no se desborda a lo ancho: las tablas anchas deslizan dentro de su contenedor.
   expect(await page.evaluate(() => (document.querySelector('main') as HTMLElement).scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   // Sin aplicaciones ni clima, los paneles lo dicen en vez de quedar vacíos.

@@ -18,7 +18,7 @@ Pestaña "Tablero" (solo administrador) con: filtros (fechas, semana de corte, o
 - [x] Filtros, series, comparativo, detalle por tabla/planta/hoja — portados; lógica de cálculo cubierta por pruebas de dominio.
 - [x] Estados vacíos de aplicaciones y clima — e2e.
 - [x] Lecturas solo por `@/datos` (`consultas.datosTablero`) con `useLiveQuery`; sin Dexie directo en la UI.
-- [x] Funciones nuevas de dominio con pruebas (13) y consulta nueva con fake-indexeddb (4, incluye rendimiento con 200 recorridos × 20 plantas × 13 hojas).
+- [x] Funciones nuevas de dominio con pruebas (13) y consulta nueva con fake-indexeddb (5, incluye separación por rancho y rendimiento con 200 recorridos × 20 plantas × 13 hojas).
 - [x] Sin desborde horizontal del contenido principal a 390 px — e2e.
 - [~] Revisión visual en celular real de 390 px y en computadora: pendiente del responsable (no hubo dispositivo; solo se comprobó estructura y desborde por prueba).
 - [x] `typecheck`, `lint`, `test`, `build`, `e2e` de captura y tablero en verde. Ver sección 4 sobre 3 pruebas de `sincronizacion`.
@@ -28,7 +28,7 @@ Pestaña "Tablero" (solo administrador) con: filtros (fechas, semana de corte, o
 - Cálculos movidos a `src/dominio/tablero.ts` (puros, ejecutables en el servidor).
 - `datosTablero()` carga todo y agrupa en memoria: con 200 recorridos tarda poco (prueba < 1.5 s en fake-indexeddb). Si el volumen crece, se puede limitar por rango de fechas más adelante.
 - La serie "total" (sin filtro de fechas) se usa para el efecto de las aplicaciones, igual que el prototipo, para poder comparar con evaluaciones fuera del rango.
-- Los filtros de fechas se guardan en `localStorage` (preferencia de este dispositivo, con try/catch); operador/tablas/semana no se guardan.
+- Ningún filtro se guarda: al abrir el tablero el rango son siempre las últimas 16 semanas hasta hoy; si se cambia, vale solo en la sesión y aparece "Volver a hoy" (ver Ajustes).
 - Umbrales del semáforo y días de alerta salen de `rancho` (`ii_umbral_medio`, `ii_umbral_alto`, `dias_alerta_aplicacion`); el prototipo usaba `ii_verde`/`ii_amarillo`.
 - Textos del prototipo que remitían a "Administración" para cargar clima o aplicaciones se cambiaron por estados vacíos neutros, porque esas pantallas llegan en los hitos 6B/7.
 - Promedios de HMJ siguen la regla vigente (excluir "no presenta"); la KPI de Pizca ahora también indica cuántas plantas no la presentan (el prototipo lo mostraba solo para estría y mancha). La regla sigue pendiente del agrónomo.
@@ -55,11 +55,16 @@ Ver bloque al final (typecheck, lint, test en dos zonas horarias, build y e2e).
 ## 7. Dudas o riesgos abiertos
 - Falta ver el tablero en un celular real y con datos reales (varias semanas, varias tablas): colores, legibilidad de gráficas y tamaño de objetivos táctiles de las filas.
 - Desborde de 9 px a 390 px en el encabezado (botón de conexión junto al selector de roles de simulación) cuando el administrador está en modo sin servidor; ya existía, no es del tablero.
-- Los filtros de fechas por defecto muestran las últimas 16 semanas.
 - Las pruebas de `sincronizacion` rotas en `main` (sección 4) conviene revisarlas antes del siguiente hito.
 - Preaviso biológico: el tablero solo muestra evaluaciones `stover`, como indica `filas`.
 
-## Salida de los comandos
+## Ajustes posteriores a la revisión (commit nuevo, sin push)
+1. `consultas.datosTablero(ranchoId)` filtra tablas, recorridos, evaluaciones, plantas, hojas, aplicaciones y clima por `rancho_id`, y los usuarios por membresía viva en ese rancho. `Tablero` pasa `rancho.id` (y la consulta reactiva depende de él). Prueba nueva con dos ranchos en la misma base local: no se mezclan en ningún sentido.
+2. Filtro de fechas sin persistencia: se quitó el `localStorage`; por defecto siempre 16 semanas hasta hoy; botón "Volver a hoy" (aparece solo si el rango cambió) lo restablece. El e2e lo comprueba.
+3. Cobertura de `src/dominio` (`npm run test:cobertura`): **99.38 % sentencias, 93.83 % ramas, 99.39 % funciones, 99.72 % líneas**. `tablero.ts`: 97.77 % sentencias, 83.33 % ramas, 100 % líneas (ramas sin cubrir: casos límite de `escalaNice` y la rama de `semanaPorDefecto`/proyección con anillos degenerados).
+- Verificación tras los ajustes: typecheck, lint, test (276 × 2 zonas horarias), build y e2e de captura (5/5) en verde. Las 3 pruebas de `sincronizacion` rotas en main siguen igual (sin cambios, ver sección 4).
+
+## Salida de los comandos (tras los ajustes)
 ```text
 > sigatoka@0.1.0 typecheck
 > tsc --noEmit
@@ -180,4 +185,90 @@ Running 10 tests using 1 worker
     [sincronizacion] › e2e/sincronizacion.spec.ts:76:1 › un PIN incorrecto muestra el error genérico y no entra 
     [sincronizacion] › e2e/sincronizacion.spec.ts:87:1 › el propietario agrega un operador y ve el diálogo con el PIN 
   7 passed (42.6s)
+
+```
+
+### Salida tras los ajustes
+```text
+> sigatoka@0.1.0 typecheck
+> tsc --noEmit
+> sigatoka@0.1.0 lint
+> eslint . --max-warnings 0
+> sigatoka@0.1.0 test
+> TZ=America/Mexico_City vitest run && TZ=UTC vitest run
+ RUN  v5.0.3 /Users/dravechacon/Dev/salvador
+[rendimiento] tarjetasRecorridos con 200 recorridos × 20 plantas × 13 hojas: 21 ms, 23 ms, 27 ms
+ Test Files  20 passed (20)
+      Tests  276 passed (276)
+   Start at  15:08:02
+   Duration  2.35s (tests 71%, environment 12%, transform 12%, import 5%)
+ RUN  v5.0.3 /Users/dravechacon/Dev/salvador
+[rendimiento] tarjetasRecorridos con 200 recorridos × 20 plantas × 13 hojas: 22 ms, 35 ms, 43 ms
+ Test Files  20 passed (20)
+      Tests  276 passed (276)
+   Start at  21:08:05
+   Duration  2.32s (tests 74%, transform 12%, environment 9%, import 4%)
+> sigatoka@0.1.0 build
+> tsc --noEmit && vite build && node scripts/verificar-dist.mjs
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 100 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                            0.52 kB
+dist/index.html                                                      1.07 kB │ gzip:   0.49 kB
+dist/assets/atkinson-hyperlegible-latin-400-normal-BbWidj28.woff    14.02 kB
+dist/assets/atkinson-hyperlegible-latin-700-normal-BK6Glc0m.woff    14.29 kB
+dist/assets/atkinson-hyperlegible-latin-400-normal-BrHNak5F.woff2   17.20 kB
+dist/assets/atkinson-hyperlegible-latin-700-normal-GZI4o3u0.woff2   17.52 kB
+dist/assets/index-BruoiLKe.css                                      16.23 kB │ gzip:   4.27 kB
+dist/assets/workbox-window.prod.es5-Bd17z0YL.js                      5.65 kB │ gzip:   2.20 kB
+dist/assets/jszip.min-C-_0JGr-.js                                   95.93 kB │ gzip:  28.47 kB
+dist/assets/index-CembdTiU.js                                      459.09 kB │ gzip: 140.44 kB
+✓ built in 95ms
+PWA v2.0.0
+mode      generateSW
+precache  20 entries (643.41 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-2fbc6a65.js
+dist/ limpia: 8 archivos revisados, sin acceso de desarrollo ni llaves secretas.
+Running 5 tests using 1 worker
+  ✓  1 [captura] › e2e/captura.spec.ts:50:1 › flujo de captura: KMZ, recorrido de 2 tablas, 5 plantas (2 sin conexión), recarga y cierre (4.1s)
+12 hojas calificadas en 400 ms (incluye la sobrecarga de Playwright)
+  ✓  2 [captura] › e2e/captura.spec.ts:163:1 › 12 hojas seguidas sin esperar: la interfaz avanza al instante y todo se guarda en orden (1.1s)
+  ✓  3 [captura] › e2e/captura.spec.ts:207:1 › si IndexedDB falla al guardar: aviso fijo con Reintentar, el recorrido no se puede cerrar y al reintentar se guarda (952ms)
+  ✓  4 [captura] › e2e/captura.spec.ts:271:3 › iPhone sin instalar › avisa y bloquea "Nuevo recorrido" hasta que se confirme capturar en el navegador (440ms)
+  ✓  5 [captura] › e2e/tablero.spec.ts:36:1 › el tablero lo ve el administrador con el mapa y los datos; el operador no lo ve (1.4s)
+  5 passed (13.1s)
+> sigatoka@0.1.0 test:cobertura
+> TZ=America/Mexico_City vitest run --coverage
+ RUN  v5.0.3 /Users/dravechacon/Dev/salvador
+      Coverage enabled with v8
+[rendimiento] tarjetasRecorridos con 200 recorridos × 20 plantas × 13 hojas: 48 ms, 52 ms, 58 ms
+ Test Files  20 passed (20)
+      Tests  276 passed (276)
+   Start at  15:08:25
+   Duration  3.91s (tests 78%, transform 9%, environment 8%, import 3%, worker 2%)
+ % Coverage report from v8
+----------------|---------|----------|---------|---------|--------------------
+File            | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s  
+----------------|---------|----------|---------|---------|--------------------
+All files       |   99.38 |    93.83 |   99.39 |   99.72 |                    
+ analisis.ts    |   98.76 |      100 |     100 |   98.33 | 155                
+ calculos.ts    |     100 |      100 |     100 |     100 |                    
+ clima.ts       |     100 |      100 |     100 |     100 |                    
+ fechas.ts      |     100 |    83.33 |     100 |     100 | 38                 
+ geo.ts         |     100 |    89.28 |     100 |     100 | 52,56              
+ importacion.ts |     100 |    91.66 |     100 |     100 | 6                  
+ modelo.ts      |     100 |      100 |     100 |     100 |                    
+ permisos.ts    |     100 |      100 |     100 |     100 |                    
+ tablero.ts     |   97.77 |    83.33 |   96.15 |     100 | 17,33,79-89,98,152 
+----------------|---------|----------|---------|---------|--------------------
+=============================== Coverage summary ===============================
+Statements   : 99.38% ( 483/486 )
+Branches     : 93.83% ( 289/308 )
+Functions    : 99.39% ( 165/166 )
+Lines        : 99.72% ( 365/366 )
+================================================================================
 ```

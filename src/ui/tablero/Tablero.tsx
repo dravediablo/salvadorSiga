@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { consultas } from '@/datos'
 import {
   climaConDesfase, distribucion, efectoAplicacion, estadoTablas, filas, GRADOS_GAUHL, hf, hoy, iiPlanta, INDICADORES, lunesDeSemana, ordenarTablas, porSemana, promedio,
@@ -14,42 +14,21 @@ import { COLOR_SEMAFORO, MapaTablas, TEXTO_SEMAFORO } from './MapaTablas'
 const CLIMA_VARS = { horas_hr_alta: 'Horas con HR alta', hr_media: 'HR media (%)', temp_media: 'Temp. media (°C)', temp_min: 'Temp. mínima (°C)' } as const
 type VarClima = keyof typeof CLIMA_VARS
 
-/** Preferencia de este dispositivo (filtros del tablero). Si el almacenamiento falla, solo vale en esta sesión. */
-function usePref<T>(clave: string, inicial: T): [T, (v: T) => void] {
-  const [v, setV] = useState<T>(() => {
-    try {
-      const s = localStorage.getItem('sigatoka.' + clave)
-      return s != null ? (JSON.parse(s) as T) : inicial
-    } catch {
-      return inicial
-    }
-  })
-  const fijar = useCallback(
-    (nv: T) => {
-      setV(nv)
-      try {
-        localStorage.setItem('sigatoka.' + clave, JSON.stringify(nv))
-      } catch {
-        /* sin almacenamiento: el filtro vale solo en esta sesión */
-      }
-    },
-    [clave],
-  )
-  return [v, fijar]
-}
-
 const colorSerie = (i: number) => `var(--s${(i % 8) + 1})`
 
 export function Tablero({ rancho }: { rancho: Rancho }) {
-  const datos = useLiveQuery(() => consultas.datosTablero(), [])
+  const datos = useLiveQuery(() => consultas.datosTablero(rancho.id), [rancho.id])
   if (!datos) return <div className="cargando">Cargando tablero…</div>
   return <TableroConDatos rancho={rancho} datos={datos} />
 }
 
 function TableroConDatos({ rancho, datos }: { rancho: Rancho; datos: NonNullable<Awaited<ReturnType<typeof consultas.datosTablero>>> }) {
   const hoyStr = hoy()
-  const [desde, setDesde] = usePref('f.desde', sumarDias(hoyStr, -16 * 7))
-  const [hasta, setHasta] = usePref('f.hasta', hoyStr)
+  // El rango no se guarda: al abrir el tablero siempre son las últimas 16 semanas hasta hoy.
+  const desdeDefecto = sumarDias(hoyStr, -16 * 7)
+  const [desde, setDesde] = useState(desdeDefecto)
+  const [hasta, setHasta] = useState(hoyStr)
+  const rangoCambiado = desde !== desdeDefecto || hasta !== hoyStr
   const [operador, setOperador] = useState('')
   const [selTablas, setSelTablas] = useState<string[]>([])
   const [mostrarFiltroTablas, setMostrarFiltroTablas] = useState(false)
@@ -155,6 +134,18 @@ function TableroConDatos({ rancho, datos }: { rancho: Rancho; datos: NonNullable
             Hasta
             <input className="inp" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
           </label>
+          {rangoCambiado && (
+            <button
+              type="button"
+              className="btn btn-s btn-q"
+              onClick={() => {
+                setDesde(desdeDefecto)
+                setHasta(hoyStr)
+              }}
+            >
+              Volver a hoy
+            </button>
+          )}
           <label>
             Semana de corte
             <select className="inp" value={semActiva ?? ''} onChange={(e) => setSemSel(e.target.value)} disabled={!semanasConDatos.length}>

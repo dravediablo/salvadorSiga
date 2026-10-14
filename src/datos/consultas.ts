@@ -88,10 +88,13 @@ export function crearConsultas(db: SigatokaDB) {
      * Datos del tablero en una sola lectura (todas las evaluaciones, plantas y hojas vivas del rancho).
      * Lee las tablas completas en vez de consultar planta por planta: con cientos de recorridos es mucho más rápido.
      */
-    async datosTablero(): Promise<DatosTablero> {
-      const [tablas, usuarios, recorridos, evs, plantas, hojas, aplicaciones, clima] = await Promise.all([
+    async datosTablero(ranchoId: string): Promise<DatosTablero> {
+      // Una misma base local puede tener datos de más de un rancho: todo se filtra por `ranchoId`.
+      const delRancho = <T extends { rancho_id: string }>(l: T[]): T[] => l.filter((x) => x.rancho_id === ranchoId)
+      const [tablas, usuarios, membresias, recorridos, evs, plantas, hojas, aplicaciones, clima] = await Promise.all([
         db.tablas.toArray(),
         db.usuarios.toArray(),
+        db.membresias.toArray(),
         db.recorridos.toArray(),
         db.evaluaciones.toArray(),
         db.plantas.toArray(),
@@ -99,15 +102,16 @@ export function crearConsultas(db: SigatokaDB) {
         db.aplicaciones.toArray(),
         db.clima.toArray(),
       ])
+      const miembros = new Set(delRancho(membresias).filter(vivo).map((m) => m.usuario_id))
       const hojasDe = new Map<string, Hoja[]>()
-      for (const h of hojas) {
+      for (const h of delRancho(hojas)) {
         if (h.eliminado) continue
         const l = hojasDe.get(h.planta_id)
         if (l) l.push(h)
         else hojasDe.set(h.planta_id, [h])
       }
       const plantasDe = new Map<string, PlantaConHojas[]>()
-      for (const planta of plantas) {
+      for (const planta of delRancho(plantas)) {
         if (planta.eliminado) continue
         const item = { planta, hojas: (hojasDe.get(planta.id) ?? []).sort((a, b) => a.numero_hoja - b.numero_hoja) }
         const l = plantasDe.get(planta.evaluacion_tabla_id)
@@ -115,14 +119,14 @@ export function crearConsultas(db: SigatokaDB) {
         else plantasDe.set(planta.evaluacion_tabla_id, [item])
       }
       return {
-        tablas: tablas.filter(vivo),
-        usuarios: usuarios.filter(vivo),
-        recorridos: recorridos.filter(vivo),
-        evaluaciones: evs
+        tablas: delRancho(tablas).filter(vivo),
+        usuarios: usuarios.filter((u) => vivo(u) && miembros.has(u.id)),
+        recorridos: delRancho(recorridos).filter(vivo),
+        evaluaciones: delRancho(evs)
           .filter(vivo)
           .map((evaluacion) => ({ evaluacion, plantas: (plantasDe.get(evaluacion.id) ?? []).sort((a, b) => a.planta.numero_planta - b.planta.numero_planta) })),
-        aplicaciones: aplicaciones.filter(vivo),
-        clima: clima.filter(vivo),
+        aplicaciones: delRancho(aplicaciones).filter(vivo),
+        clima: delRancho(clima).filter(vivo),
       }
     },
 
