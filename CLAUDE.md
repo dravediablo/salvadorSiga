@@ -1,3 +1,6 @@
+Estás en la rama laboratorio. Las reglas de LABORATORIO.md tienen prioridad sobre todo lo demás.
+@LABORATORIO.md
+
 # Sigatoka: app de monitoreo de Sigatoka negra
 
 ## Qué es

@@ -24,3 +24,19 @@ archivos se tocaron y si quedó algo pendiente.
     commiteados **solo** en esta rama, hay que crearlos.
   - Confirmar que exista el "link del laboratorio" (deploy de preview en Vercel
     para esta rama) para que el colaborador vea los cambios desde el celular.
+
+## 2026-10-13 — Fijar las reglas del laboratorio en archivos
+
+- **Qué se pidió:** dejar las reglas del laboratorio escritas en el repo (no
+  solo en la conversación) y protegidas para que no se modifiquen por error.
+- **Problema que resuelve:** las reglas vivían solo como texto pegado; ahora
+  quedan fijas y con prioridad sobre el resto.
+- **Qué se tocó:**
+  - `LABORATORIO.md`: reglas del laboratorio + regla nueva "no modificar
+    CLAUDE.md, LABORATORIO.md ni nada dentro de .claude/".
+  - `CLAUDE.md` (solo en esta rama): dos líneas al inicio que dan prioridad a
+    LABORATORIO.md y lo importan con `@LABORATORIO.md`.
+  - `.claude/settings.json`: se prohíbe editar `CLAUDE.md`, `LABORATORIO.md` y
+    todo dentro de `.claude/`.
+- **Nota:** los candados nuevos de `.claude/settings.json` toman efecto en la
+  próxima sesión de Claude Code (se leen al arrancar).
